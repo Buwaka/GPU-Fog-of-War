@@ -5,12 +5,43 @@ using UnityEngine;
 
 namespace FogOfWar
 {
+    public struct FogOfWarData
+    {
+        public Vector2 Position;
+        public Vector2 LastPosition;
+        public float Range;
+        public byte FactionID;
+        public bool IsVisible;
+    }
+
     /// <summary>
     /// Responsible for calculating fog of war for soldiers
     /// </summary>
-    public class FogOfWarService
+    public class FogOfWarService : MonoBehaviour
     {
         private FogOfWarSettings settings;
+
+        private Queue<FogOfWarData> FOWdata = new Queue<FogOfWarData>(200); //finda better heuristic instead of 200
+
+        //singleton
+        private static FogOfWarService _instance;
+        public static FogOfWarService Instance
+        {
+            get
+            {
+                if (_instance == null)
+                {
+                    _instance = GameObject.FindObjectOfType<FogOfWarService>();
+
+                    if (_instance == null)
+                    {
+                        GameObject container = new GameObject("FogOfWarService");
+                        _instance = container.AddComponent<FogOfWarService>();
+                    }
+                }
+                return _instance;
+            }
+        }
 
         public FogOfWarService(FogOfWarSettings settings)
         {
@@ -59,6 +90,11 @@ namespace FogOfWar
         {
             soldiers[0].SetVisible(true);
             soldiers[1].SetVisible(false);
+        }
+
+        public void RegisterFOWData(FogOfWarData data)
+        {
+            FOWdata.Enqueue(data);
         }
     }
 }

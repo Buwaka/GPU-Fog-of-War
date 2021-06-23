@@ -47,7 +47,7 @@ namespace DefaultNamespace
             var sampler = Sampler.Get("Fog Of War");
             recorder = sampler.GetRecorder();
             recorder.enabled = true;
-            foreach (var s in soldiers) s.Position = s.transform.position;
+            foreach (var s in soldiers) s.Init();
 
             Canvas.transform.Find("All").GetComponent<Button>().onClick
                 .AddListener(() => Settings.mode = FogOfWarSettings.Mode.All);
@@ -145,7 +145,8 @@ namespace DefaultNamespace
             var s = Instantiate(SoldierPrefab);
             soldiers.Add(s);
             s.SetFaction(faction);
-            s.Position = pos;
+            s.SetPosition(pos);
+            s.Init();
         }
 
         private void updateFogOfWarRendering(byte[] visibleToFaction)
@@ -183,13 +184,13 @@ namespace DefaultNamespace
                 if (s.HasMoveTarget)
                 {
                     var toTarget = s.MoveTarget - s.Position;
-                    s.Position = Vector3.MoveTowards(s.Position, s.MoveTarget, Time.deltaTime * moveSpeed);
-                    s.Rotation = Quaternion.RotateTowards(s.Rotation, Quaternion.LookRotation(toTarget),
+                    var Position = Vector3.MoveTowards(s.Position, s.MoveTarget, Time.deltaTime * moveSpeed);
+                    var Rotation = Quaternion.RotateTowards(s.Rotation, Quaternion.LookRotation(toTarget),
                                                           Time.deltaTime * rotationSpeed);
-                }
 
-                s.transform.position = s.Position;
-                s.transform.rotation = s.Rotation;
+                    s.SetPosition(Position);
+                    s.SetRotation(Rotation);
+                }
             }
         }
     }
