@@ -9,17 +9,31 @@ namespace Algorithms
 {
     public class MidPointCircle
     {
+        //c# equivalent of inline keyword
+        //https://docs.microsoft.com/en-us/dotnet/api/system.runtime.compilerservices.methodimploptions?redirectedfrom=MSDN&view=net-5.0
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static void GetByteNibbles(out uint first, out uint second, uint Byte)
         {
-            //not going to care about endian here, but it might be a problem on exotic hardware
-            first = (Byte & 0x0000FFFF); //LSB
-            second = (Byte & 0xFFFF0000) >> 16; //MSB
+            //Endian might be important on consoles or exotic hardware
+
+            if (BitConverter.IsLittleEndian)
+            {
+                first =  (Byte & 0x0000000F); //LSB
+                second = (Byte & 0x000000F0) >> 4; //MSB
+            }
+            else
+            {
+                first =  (Byte & 0xF0000000); //LSB
+                second = (Byte & 0x0F000000) << 4; //MSB
+            }
         }
 
+        //c# equivalent of inline keyword
+        //https://docs.microsoft.com/en-us/dotnet/api/system.runtime.compilerservices.methodimploptions?redirectedfrom=MSDN&view=net-5.0
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static void SetByteNibbles(uint first, uint second, out byte Byte)
         {
-            //not going to care about endian here, but it might be a problem on exotic hardware
-            Byte = (byte)(first | (second << 16));
+            Byte = (byte)(first | (second << 4));
         }
 
         //c# equivalent of inline keyword
@@ -40,7 +54,7 @@ namespace Algorithms
 
                     GetByteNibbles(out tempValue, out count, data);
 
-                    count = Math.Max(count - 1, 0);
+                    count = count > 0 ? count - 1 : 0;
 
                     if (count == 0)
                     {
