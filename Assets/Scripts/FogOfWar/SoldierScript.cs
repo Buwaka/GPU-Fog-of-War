@@ -5,10 +5,15 @@ namespace Modules.StarshipTroopers.Battles.BattleCombat.TracerSystems
 {
     public class SoldierScript : MonoBehaviour
     {
+        //because 2 instances already exist
+        //job test only
+        private static uint IDCounter = 2;
+
         /// <summary>
         /// TODO make this 0.1
         /// </summary>
         public int FactionId;
+        public uint SoldierID;
 
         public Material FactionA;
         public Material FactionB;
@@ -30,11 +35,14 @@ namespace Modules.StarshipTroopers.Battles.BattleCombat.TracerSystems
         public void Init()
         {
             Position = LastPosition = transform.position;
+            SoldierID = IDCounter++;
+
             RegisterFOW();
         }
 
         public void SetPosition(Vector3 position)
         {
+            LastPosition = Position;
             Position = transform.position = position;
             RegisterFOW();
         }
@@ -53,12 +61,13 @@ namespace Modules.StarshipTroopers.Battles.BattleCombat.TracerSystems
             Data.FactionID = (byte)FactionId;
             Data.IsVisible = renderer.enabled;
 
-            FogOfWarService.Instance.RegisterFOWData(Data);
+            FogOfWarService.Instance.RegisterFOWData(SoldierID, Data);
         }
 
         public void SetVisible(bool visible)
         {
             renderer.enabled = visible;
+            RegisterFOW();
         }
 
         public void SetFaction(int factionId)

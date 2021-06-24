@@ -42,7 +42,8 @@ namespace DefaultNamespace
             Decal.Initialize(new Vector2(0, 0), Settings.CellSize,Settings. GridSize, Settings);
             soldiers = FindObjectsOfType<SoldierScript>().ToList();
             Random.InitState(0);
-            fogOfWarService = new FogOfWarService( Settings);
+            fogOfWarService = FogOfWarService.Instance;
+            fogOfWarService.RegisterSettings(Settings);
             fogOfWarService.InitExistingSoldiers(soldiers);
             var sampler = Sampler.Get("Fog Of War");
             recorder = sampler.GetRecorder();
@@ -93,7 +94,7 @@ namespace DefaultNamespace
                 visibilityTime = watch.Elapsed.TotalMilliseconds;
 
             }
-          
+
             updateFogOfWarRendering(visibleToFaction);
             renderSoldierRanges();
             Debug.Log($"Fog Of War: {fowTime:0.00}ms - " +

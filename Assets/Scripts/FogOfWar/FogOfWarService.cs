@@ -21,7 +21,7 @@ namespace FogOfWar
     {
         private FogOfWarSettings settings;
 
-        private Queue<FogOfWarData> FOWdata = new Queue<FogOfWarData>(200); //finda better heuristic instead of 200
+        private Dictionary<uint,FogOfWarData> FOWdata = new Dictionary<uint, FogOfWarData>(200); //finda better heuristic instead of 200
 
         //singleton
         private static FogOfWarService _instance;
@@ -43,7 +43,7 @@ namespace FogOfWar
             }
         }
 
-        public FogOfWarService(FogOfWarSettings settings)
+        public void RegisterSettings(FogOfWarSettings settings)
         {
             // settings.CellSize; world space size of cell
             // settings.GridSize; number of cells in one dimension
@@ -75,6 +75,24 @@ namespace FogOfWar
             outVisibleToFaction[3 * settings.GridSize + 3] = 1; // set cell (x:3,y:3) is visibile to blue
             outVisibleToFaction[3 * settings.GridSize + 4] = 2; // set cell (x:4,y:3) is visibile to red
             outVisibleToFaction[3 * settings.GridSize + 5] = 3; // set cell (x:5,y:3) is visibile to both
+
+            foreach(var entry in FOWdata)
+            {
+                var ID = entry.Key;
+                var data = entry.Value;
+
+                //clean last position
+                Algorithms.MidPointCircle.DrawCircle2(data.LastPosition, data.Range, settings.GridSize, settings.CellSize, 0, outVisibleToFaction);
+
+                if(data.IsVisible)
+                {
+                    byte value = (byte)(data.FactionID);
+
+                    Algorithms.MidPointCircle.DrawCircle2(data.Position, data.Range, settings.GridSize, settings.CellSize, value, outVisibleToFaction);
+                }
+            }
+
+            FOWdata.Clear();
         }
 
         /// <summary>
@@ -92,9 +110,12 @@ namespace FogOfWar
             soldiers[1].SetVisible(false);
         }
 
-        public void RegisterFOWData(FogOfWarData data)
+        public void RegisterFOWData(uint ID, FogOfWarData data)
         {
-            FOWdata.Enqueue(data);
+            if (FOWdata.ContainsKey(ID))
+                FOWdata[ID] = data;
+            else
+                FOWdata.Add(ID, data);
         }
     }
 }
