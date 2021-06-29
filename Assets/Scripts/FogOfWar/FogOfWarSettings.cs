@@ -6,11 +6,17 @@ namespace FogOfWar
     [Serializable]
     public class FogOfWarSettings
     {
-        public enum Mode
+        public enum Mode : int
         {
             All,
-            FactionRed,
-            FactionBlue
+            FactionBlue = 1,
+            FactionRed = 2
+        }
+
+        public enum ComputeMethod
+        {
+            CPU,
+            GPU
         }
 
         /// <summary>
@@ -27,7 +33,16 @@ namespace FogOfWar
 
 
         [Header("Rendering")] public Mode mode = Mode.All;
+        public Color FactionRedColor = Color.red;
+        public Color FactioBlueColor = Color.blue;
         public bool DrawRangesEnabled;
+        [SerializeField]
+        public ComputeMethod ComputeType = ComputeMethod.CPU;
+        public ComputeShader GPUFOWShader = null;
+        [HideInInspector]
+        public RenderTexture FOWtex = null;
+        [HideInInspector] //don't forget to change this in the shader and vice versa
+        public const int FoWMap_ShaderArray_Size = 512;
 
         [Header("Simulation")] public bool WanderEnabled;
         public bool ChangeFactionEnabled;

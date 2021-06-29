@@ -1,0 +1,286 @@
+// Each #kernel tells which function to compile; you can have many kernels
+#pragma kernel FOWMapGenerator DEFINE_WITH_VALUE=1337
+#pragma enable_d3d11_debug_symbols
+//#pragma exclude_renderers d3d11_9x
+//#pragma exclude_renderers d3d9
+
+//#include "Packages/com.unity.render-pipelines.core/ShaderLibrary/Common.hlsl"
+
+
+#include "UnityCG.cginc"
+
+
+// Create a RenderTexture with enableRandomWrite flag and set it
+// with cs.SetTexture
+struct FOWData
+{
+    float2 position;
+    float range;
+    int FactionID;
+    int IsVisible;
+};
+
+
+// groupshared is only allowed on basic types
+// 16-32 kb max depending on hardware, so lets pick 16kb as max
+// 500 uints = 4 bytes * 512 = 2048 tiles = 2048 bytes
+#define FoWMap_Size 4096
+groupshared uint _FoWMap[FoWMap_Size];
+
+RWTexture2D<float4> Result;
+StructuredBuffer<FOWData> _FOWData;
+
+CBUFFER_START(Params)
+int _DispatchThreadCount;
+int _DataCount;
+float _GridSize;
+float _CellSize;
+
+float4 FactionBlueColor;
+//int FactionBlueID;
+float4 FactionRedColor;
+//int FactionRedID;
+CBUFFER_END
+
+const int _DataCount2;
+
+#define GroupSize 64
+
+//float DistanceSqrt(float2 a, float2 b)
+//{
+//    float x = pow(a.x - b.x, 2);
+//    float y = pow(a.y - b.y, 2);
+//    return x + y;
+//}
+
+//its your own responsibility to make sure value is a number from 0 to 255, im not making any checks
+//void ORByteValue(uint target, uint value, out uint destination[FoWMap_Size])
+//{
+//	uint step = target % 4; //uint contains 4 bytes
+//	uint RealTarget = (target - step) / 4;
+//	uint result;
+	
+//	switch (step)
+//	{
+//		case 0:
+//			result = value;
+//			break;
+//		case 1:
+//			result = value << 8;
+//			break;
+//		case 2:
+//			result = value << 16;
+//			break;
+//		case 3:
+//			result = value << 24;
+//			break;
+//	}
+
+//	destination[RealTarget] |= result;
+//}
+
+float4 RGBAuintToFloat4(uint data)
+{
+	float4 destination;
+	
+	destination.r = data && 0x000000FF;
+	destination.g = (data && 0x0000FF00) >> 8;
+	destination.b = (data && 0x00FF0000) >> 16;
+	destination.a = (data && 0xFF000000) >> 24;
+
+	return destination;
+}
+
+
+uint SetRGBAuint(float4 color)
+{
+	uint r, g, b, a;
+	
+	r = (uint) color.r;
+	
+	g = (uint) color.g;
+	g = g << 8;
+	
+	b = (uint) color.b;
+	b = b << 16;
+	
+	a = (uint) color.a;
+	a = a << 24;
+	
+	return r | g | b | a;
+}
+
+uint SetByteuint(uint4 data)
+{
+	uint a, b, c, d;
+	
+	a = data.x;
+	
+	b = data.y << 8;
+	
+	c = data.z << 16;
+	
+	d = data.w << 24;
+	
+	return a | b | c | d;
+}
+
+//make sure offset is not greater than or equal to size of data type, 4 for uint
+uint SetSingleByteuint(uint value, uint offset)
+{
+	return value << (8 * offset);
+}
+
+uint GetSingleByte(uint data, uint offset)
+{
+	uint bitOffset = (8 * offset);
+	uint mask = 0x000000FF << bitOffset;
+	
+	return (data & mask) >> bitOffset;
+
+}
+
+void DrawHorizontalLine(int a, int x, int y, int width, uint ID)
+{
+	//[loop]
+	for (int i = a; i < min(x, width); i++)
+	{
+		//uint2 position = uint2(i, y);
+		
+		uint target = (y * width) + i;
+		if (target >= 0 && target < FoWMap_Size * 4) //4 bytes per uint
+		{
+			//ORByteValue(target, _FOWData[ID].FactionID, _FoWMap);
+			uint index;
+			index = floor((float) target / 4); //4 bytes per uint
+			uint offset = index % 4;
+			
+			InterlockedOr(_FoWMap[index], SetSingleByteuint(_FOWData[ID].FactionID, offset));
+
+			//if (_FOWData[ID].FactionID == 2)
+			//	InterlockedExchange(_FoWMap[index], SetRGBAuint(FactionRedColor), temp);
+			//else
+			//	InterlockedExchange(_FoWMap[index], SetRGBAuint(FactionBlueColor), temp);
+		}
+	}
+	}
+
+void DrawLineWrapper(int a, int b, int x, int y, int width, uint ID)
+{
+	DrawHorizontalLine(a - x, a + x, b + y, width, ID);
+	if (y != 0)
+		DrawHorizontalLine(a - x, a + x, b - y, width, ID);
+}
+
+
+void DrawFullCircle(uint ID)
+{
+	int radius = ceil(_FOWData[ID].range / _CellSize);
+	int error = -radius;
+
+	int x = radius;
+	int y = 0;
+
+            //center of the circle
+            //x
+	int a = ceil(_FOWData[ID].position.x / _CellSize);
+            //y
+	int b = ceil(_FOWData[ID].position.y / _CellSize);
+	
+	//[loop]
+	while (x >= y)
+	{
+		int lastY = y;
+
+		error += y;
+		++y;
+		error += y;
+
+		DrawLineWrapper(a, b, x, lastY, _GridSize, ID);
+
+		if (error >= 0)
+		{
+			if (x != lastY)
+				DrawLineWrapper(a, b, lastY, x, _GridSize, ID);
+
+			error -= x;
+			--x;
+			error -= x;
+		}
+	}
+}
+
+
+
+//To understand the difference, a bit of hardware knowledge is required:
+//Internally, a GPU works on so-called wave fonts, which are SIMD-style processing units (Like a group of threads, where each thread can have it's own data, but they all have to execute the exact same instruction at the exact same time, allways). 
+//The number of Threads per wave font is hardware dependent, but is usual either 32 (NVidia) or 64 (AMD).
+//Now, with [numthreads(8,1,1)] you request a shader thread group size of 8 x 1 x 1 = 8 threads, which the hardware is free to distribute among it's wave fonts. 
+//So, with 32 threads per wave font, the hardware would schedule one wave font per shader group, with 8 active threads in that wave font (the other 24 threads are "inactive", meaning they do the same work, but are discarding any memory writes). 
+//Then, with Dispatch(1, 1, 1), you are dispatching one such shader group, meaning there will be one wave font running on the hardware.
+//Would you use [numthreads(1,1,1)] instead, only one thread in a wave font could be active. 
+//So, by calling Dispatch(8, 1, 1) on that one, the hardware would require to run 8 shader groups (= 8 wave fonts), each one running just with 1/32 active threads, so while you would get the same result, you would waste a lot more computational power.
+//So, in general, for optimal performance you want to have shader group sizes that are multiples of 32 (or 64), while trying to call Dispatch with as low numbers as reasonable possible.
+//https://stackoverflow.com/questions/63034523/difference-between-calling-numthreads-and-dispatch-in-a-unity-compute-shader
+
+[numthreads(GroupSize, 1, 1)]
+void FOWMapGenerator(uint3 id : SV_DispatchThreadID)
+{
+	uint width, height;
+	Result.GetDimensions(width, height);
+	uint mapsize = width * height;
+	
+	uint instPerThread = (uint) ceil((float) _DataCount / GroupSize);
+	
+	[loop]
+	for (uint i = 0; i < instPerThread; i++)
+	{
+		uint realID = (id.x * instPerThread) + i;
+		if (realID > (uint)_DataCount)
+			break;
+		
+		DrawFullCircle(realID);
+	}
+	
+	GroupMemoryBarrierWithGroupSync();
+	
+	instPerThread = (uint) ceil((float)	mapsize / GroupSize);
+	
+	[loop]
+	for (uint j = 0; j < instPerThread; j++)
+	{
+		//current pixel index in 1D, based on thread ID
+		uint realID = (id.x * instPerThread) + j;
+		if (realID > mapsize)
+			break;
+		
+		//converting that 1D index to a 2D index
+		uint2 position = uint2(realID % width, floor(realID / width));
+		
+		//index in bytepacked uint
+		uint index;
+		index = floor((float) realID / 4); //4 bytes per uint
+		uint offset = index % 4;
+		
+		uint data = GetSingleByte(_FoWMap[index], offset);
+		
+		if (data != 0)
+		{
+			if (data == 1)
+				Result[position] = FactionBlueColor;
+			if (data == 2)
+				Result[position] = FactionRedColor;
+		}
+		else
+			Result[position] = float4(0, 1, 0, 1);
+		
+		//Result[position] = float4(0, 0.3 * (j % 4), 0, 1);
+	}
+	
+
+	//uint2 position = _FOWData[id.x].position / _GridSize;
+	//Result[position] = _FOWData[id.x].FactionID == 2 ? FactionRedColor : FactionBlueColor;
+
+
+	//Result[id.xy] = float4(id.r, id.g, id.b, 1);
+	}

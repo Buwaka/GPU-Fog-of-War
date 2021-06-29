@@ -27,7 +27,8 @@ namespace DefaultNamespace
         private FogOfWarService fogOfWarService;
         private Recorder recorder;
 
-        ProfilerMarker fogOfWarMarker = new ProfilerMarker("Fog Of War");
+        ProfilerMarker fogOfWarMarkerCPU = new ProfilerMarker("Fog Of War - CPU");
+        ProfilerMarker fogOfWarMarkerGPU = new ProfilerMarker("Fog Of War - GPU");
         ProfilerMarker visibilityMarker = new ProfilerMarker("Visibility");
 
         private Stopwatch watch = new Stopwatch();
@@ -35,8 +36,10 @@ namespace DefaultNamespace
         public void OnEnable()
         {
             visibleToFaction = new byte[Settings.GridSize * Settings.GridSize];
+            VisibleToFaction_Size = (uint)Settings.GridSize * (uint)Settings.GridSize;
 
-            
+
+
             GroundPlane.localScale = Settings.CellSize *Settings. GridSize * 0.1f * Vector3.one;
             GroundPlane.position = new Vector3((Settings.GridSize * Settings.CellSize) * 0.5f, 0, (Settings.GridSize * Settings.CellSize) * 0.5f);
             Decal.Initialize(new Vector2(0, 0), Settings.CellSize,Settings. GridSize, Settings);
@@ -78,18 +81,31 @@ namespace DefaultNamespace
             ChangeRandomFaction();
 
             double fowTime,visibilityTime;
-            using (fogOfWarMarker.Auto())
+            if(Settings.ComputeType == FogOfWarSettings.ComputeMethod.CPU)
             {
-                watch.Restart();
-                fogOfWarService.UpdateFogOfWar(soldiers, visibleToFaction);
-                watch.Stop();
-                fowTime = watch.Elapsed.TotalMilliseconds;
+                using (fogOfWarMarkerCPU.Auto())
+                {
+                    watch.Restart();
+                    fogOfWarService.UpdateFogOfWar(soldiers, visibleToFaction, VisibleToFaction_Size);
+                    watch.Stop();
+                    fowTime = watch.Elapsed.TotalMilliseconds;
+                }
+            }
+            else
+            {
+                using (fogOfWarMarkerGPU.Auto())
+                {
+                    watch.Restart();
+                    fogOfWarService.UpdateFogOfWarGPU(soldiers, visibleToFaction, VisibleToFaction_Size);
+                    watch.Stop();
+                    fowTime = watch.Elapsed.TotalMilliseconds;
+                }
             }
 
             using (visibilityMarker.Auto())
             {
                 watch.Restart();
-                fogOfWarService.UpdateSoldierVisibilities(soldiers, visibleToFaction);
+                fogOfWarService.UpdateSoldierVisibilities(soldiers, visibleToFaction, VisibleToFaction_Size);
                 watch.Stop();
                 visibilityTime = watch.Elapsed.TotalMilliseconds;
 
@@ -125,6 +141,7 @@ namespace DefaultNamespace
 
         private float lastChange = 0;
         private byte[] visibleToFaction;
+        private uint VisibleToFaction_Size;
 
         private void ChangeRandomFaction()
         {
@@ -132,7 +149,7 @@ namespace DefaultNamespace
             if (lastChange + 1 < Time.timeSinceLevelLoad)
             {
                 var s = soldiers[Random.Range(0, soldiers.Count)];
-                s.SetFaction(s.FactionId == 0 ? 1 : 0);
+                s.SetFaction(s.FactionId == 0 ? 1 : 2);
                 lastChange = Time.timeSinceLevelLoad;
             }
         }
@@ -142,7 +159,7 @@ namespace DefaultNamespace
             var pos = new Vector3(
                 Random.value * (Settings.GridSize *Settings. CellSize - Settings.SoldierEdgeClamping * 2) + Settings.SoldierEdgeClamping, 0,
                 Random.value * (Settings.GridSize * Settings.CellSize - Settings.SoldierEdgeClamping * 2) + Settings.SoldierEdgeClamping);
-            var faction = Random.Range(0, 2);
+            var faction = Random.Range(1, 3);
             var s = Instantiate(SoldierPrefab);
             soldiers.Add(s);
             s.SetFaction(faction);
@@ -152,7 +169,7 @@ namespace DefaultNamespace
 
         private void updateFogOfWarRendering(byte[] visibleToFaction)
         {
-            Decal.UpdateTexture(visibleToFaction);
+            Decal.UpdateTexture2D(visibleToFaction);
         }
 
 

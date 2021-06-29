@@ -34,7 +34,7 @@ namespace Modules.StarshipTroopers.Battles.BattleCombat.TracerSystems
 
         public void Init()
         {
-            Position = LastPosition = transform.position;
+            Position = transform.position;
             SoldierID = IDCounter++;
 
             RegisterFOW();
@@ -42,8 +42,8 @@ namespace Modules.StarshipTroopers.Battles.BattleCombat.TracerSystems
 
         public void SetPosition(Vector3 position)
         {
-            LastPosition = Position;
-            Position = transform.position = position;
+            Position = position;
+            transform.position = position;
             RegisterFOW();
         }
 
@@ -56,10 +56,9 @@ namespace Modules.StarshipTroopers.Battles.BattleCombat.TracerSystems
         {
             FogOfWarData Data;
             Data.Position = new Vector2(Position.x, Position.z);
-            Data.LastPosition = new Vector2(LastPosition.x, LastPosition.z);
             Data.Range = ViewRange;
             Data.FactionID = (byte)FactionId;
-            Data.IsVisible = renderer.enabled;
+            Data.IsVisible = (byte) (renderer.enabled ? 1 : 0);
 
             FogOfWarService.Instance.RegisterFOWData(SoldierID, Data);
         }
@@ -73,8 +72,8 @@ namespace Modules.StarshipTroopers.Battles.BattleCombat.TracerSystems
         public void SetFaction(int factionId)
         {
             FactionId = factionId;
-            if (factionId == 0) renderer.material = FactionA;
-            if (factionId == 1) renderer.material = FactionB;
+            if (factionId == 1) renderer.material = FactionA;
+            if (factionId == 2) renderer.material = FactionB;
         }
     }
 }

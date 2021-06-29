@@ -39,11 +39,20 @@ namespace Algorithms
         //c# equivalent of inline keyword
         //https://docs.microsoft.com/en-us/dotnet/api/system.runtime.compilerservices.methodimploptions?redirectedfrom=MSDN&view=net-5.0
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        private static void SetValue(int x, int y, int width, byte value, byte[] outData)
+        private static void SetValue(int x, int y, int width, byte value, byte[] outData, uint size, bool NibbleCountHack = false)
         {
             int target = y * width + x;
-            if (x >= 0 && target >= 0 && target < outData.GetUpperBound(0))
+
+            if (target >= 0 && target < size)
             {
+                //just set value and exit if we won't use nibble count hack
+                if (!NibbleCountHack)
+                {
+                    outData[target] |= value;
+                    return;
+                }
+
+
                 //clean cell
                 if (value == 0)
                 {
@@ -88,38 +97,39 @@ namespace Algorithms
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        private static void DrawHorizontalLine(int a, int x, int y, int width, byte value, byte[] outData)
+        private static void DrawHorizontalLine(int a, int x, int y, int width, byte value, byte[] outData, uint size, bool NibbleCountHack = false)
         {
-            for(int i = a; i < x; i++)
+            for(int i = a; i < Math.Min(x, width); i++)
             {
-                SetValue(i, y, width, value, outData);
+                SetValue(i, y, width, value, outData, size, NibbleCountHack);
             }
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        private static void DrawOctantsLines(int a, int b, int x, int y, int width, byte value, byte[] outData)
+        private static void DrawOctantsLines(int a, int b, int x, int y, int width, byte value, byte[] outData, uint size, bool NibbleCountHack = false)
         {
-            DrawHorizontalLine(a - x, a + x, b + y, width, value, outData);
-            DrawHorizontalLine(a - x, a + x, b - y, width, value, outData);
+            DrawHorizontalLine(a - x, a + x, b + y, width, value, outData, size, NibbleCountHack);
+            DrawHorizontalLine(a - x, a + x, b - y, width, value, outData, size, NibbleCountHack);
 
-            DrawHorizontalLine(a - y, a + y, b + x, width, value, outData);
-            DrawHorizontalLine(a - y, a + y, b - x, width, value, outData);
+            DrawHorizontalLine(a - y, a + y, b + x, width, value, outData, size, NibbleCountHack);
+            DrawHorizontalLine(a - y, a + y, b - x, width, value, outData, size, NibbleCountHack);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        private static void DrawOctants(int a, int b, int x, int y, int width, byte value, byte[] outData)
+        private static void DrawOctants(int a, int b, int x, int y, int width, byte value, byte[] outData, uint size, bool NibbleCountHack = false)
         {
-            SetValue(a + x, b + y, width, value, outData);
-            SetValue(a - x, b + y, width, value, outData);
-            SetValue(a + x, b - y, width, value, outData);
-            SetValue(a - x, b - y, width, value, outData);
-            SetValue(a + y, b + x, width, value, outData);
-            SetValue(a - y, b + x, width, value, outData);
-            SetValue(a + y, b - x, width, value, outData);
-            SetValue(a - y, b - x, width, value, outData);
+
+            SetValue(Math.Min(a + x, width), b + y, width, value, outData, size, NibbleCountHack);
+            SetValue(Math.Min(a - x, width), b + y, width, value, outData, size, NibbleCountHack);
+            SetValue(Math.Min(a + x, width), b - y, width, value, outData, size, NibbleCountHack);
+            SetValue(Math.Min(a - x, width), b - y, width, value, outData, size, NibbleCountHack);
+            SetValue(Math.Min(a + y, width), b + x, width, value, outData, size, NibbleCountHack);
+            SetValue(Math.Min(a - y, width), b + x, width, value, outData, size, NibbleCountHack);
+            SetValue(Math.Min(a + y, width), b - x, width, value, outData, size, NibbleCountHack);
+            SetValue(Math.Min(a - y, width), b - x, width, value, outData, size, NibbleCountHack);
         }
 
-        public static void DrawCircle(Vector3 pos, float range, int GridSize, float CellSize, byte value, byte[] outData)
+        public static void DrawCircle(Vector2 pos, float range, int GridSize, float CellSize, byte value, byte[] outData, uint size, bool NibbleCountHack = false)
         {
             //radius
             int r = Mathf.RoundToInt(range / CellSize);
@@ -132,10 +142,10 @@ namespace Algorithms
             //x
             int a = Mathf.RoundToInt(pos.x / CellSize);
             //y
-            int b = Mathf.RoundToInt(pos.z / CellSize);
+            int b = Mathf.RoundToInt(pos.y / CellSize);
 
 
-            DrawOctantsLines(a, b, x, y, GridSize, value, outData);
+            DrawOctants(a, b, x, y, GridSize, value, outData, size, NibbleCountHack);
 
             // d is Bresenham magic
             // https://en.wikipedia.org/wiki/Bresenham%27s_line_algorithm
@@ -155,19 +165,19 @@ namespace Algorithms
                 else
                     d = d + ((4 * x) + 6);
 
-                DrawOctantsLines(a, b, x, y, GridSize, value, outData);
+                DrawOctants(a, b, x, y, GridSize, value, outData, size, NibbleCountHack);
             }
         }
 
-        public static void DrawLineWrapper(int a, int b, int x, int y, int width, byte value, byte[] outData)
+        public static void DrawLineWrapper(int a, int b, int x, int y, int width, byte value, byte[] outData, uint size, bool NibbleCountHack = false)
         {
-            DrawHorizontalLine(a - x, a + x, b + y, width, value, outData);
+            DrawHorizontalLine(a - x, a + x, b + y, width, value, outData, size, NibbleCountHack);
             if (y != 0)
-                DrawHorizontalLine(a - x, a + x, b - y, width, value, outData);
+                DrawHorizontalLine(a - x, a + x, b - y, width, value, outData, size, NibbleCountHack);
         }
 
         //varriation that doesn't print duplicate lines
-        public static void DrawCircle2(Vector3 pos, float range, int GridSize, float CellSize, byte value, byte[] outData)
+        public static void DrawFullCircle(Vector2 pos, float range, int GridSize, float CellSize, byte value, byte[] outData, uint size, bool NibbleCountHack = false)
         {
             int radius = Mathf.RoundToInt(range / CellSize);
             int error = -radius;
@@ -179,7 +189,7 @@ namespace Algorithms
             //x
             int a = Mathf.RoundToInt(pos.x / CellSize);
             //y
-            int b = Mathf.RoundToInt(pos.z / CellSize);
+            int b = Mathf.RoundToInt(pos.y / CellSize);
 
             while (x >= y)
             {
@@ -189,12 +199,12 @@ namespace Algorithms
                 ++y;
                 error += y;
 
-                DrawLineWrapper(a, b, x, lastY, GridSize, value, outData);
+                DrawLineWrapper(a, b, x, lastY, GridSize, value, outData, size, NibbleCountHack);
 
                 if (error >= 0)
                 {
                     if (x != lastY)
-                        DrawLineWrapper(a, b, lastY, x, GridSize, value, outData);
+                        DrawLineWrapper(a, b, lastY, x, GridSize, value, outData, size, NibbleCountHack);
 
                     error -= x;
                     --x;
@@ -204,7 +214,7 @@ namespace Algorithms
         }
 
         //clean outer edges of the circle
-        public static void CleanOuterCircle(Vector3 pos, float range, int GridSize, float CellSize, byte value, byte[] outData)
+        public static void CleanOuterCircle(Vector2 pos, float range, int GridSize, float CellSize, byte value, byte[] outData, uint size, bool NibbleCountHack = false)
         {
             //radius
             int r = Mathf.RoundToInt(range / CellSize);
@@ -217,10 +227,10 @@ namespace Algorithms
             //x
             int a = Mathf.RoundToInt(pos.x / CellSize);
             //y
-            int b = Mathf.RoundToInt(pos.z / CellSize);
+            int b = Mathf.RoundToInt(pos.y / CellSize);
 
 
-            DrawOctants(a, b, x, y, GridSize, value, outData);
+            DrawOctants(a, b, x, y, GridSize, value, outData, size, NibbleCountHack);
 
             // d is Bresenham magic
             // https://en.wikipedia.org/wiki/Bresenham%27s_line_algorithm
@@ -239,7 +249,7 @@ namespace Algorithms
                 else
                     d = d + ((4 * x) + 6);
 
-                DrawOctants(a, b, x, y, GridSize, value, outData);
+                DrawOctants(a, b, x, y, GridSize, value, outData, size, NibbleCountHack);
             }
         }
     }

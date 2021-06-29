@@ -42,7 +42,7 @@ namespace Assets.PathfindingAstarProject
             if (updatePoint)
             {
 
-                GetComponent<SoldierScript>().Position = hitInfo.point;
+                GetComponent<SoldierScript>().SetPosition(hitInfo.point);
             }
 
         }

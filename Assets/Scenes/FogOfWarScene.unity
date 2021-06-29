@@ -188,7 +188,7 @@ PrefabInstance:
     - target: {fileID: 4504156914483626748, guid: 924661e390b288242919bdfcdc1ea24e,
         type: 3}
       propertyPath: FactionId
-      value: 0
+      value: 1
       objectReference: {fileID: 0}
     - target: {fileID: 6598020846460597979, guid: 924661e390b288242919bdfcdc1ea24e,
         type: 3}
@@ -828,7 +828,7 @@ Transform:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 435291266}
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 50, y: 0.32, z: 50}
+  m_LocalPosition: {x: 50, y: 0.3, z: 50}
   m_LocalScale: {x: 10, y: 10, z: 10}
   m_Children: []
   m_Father: {fileID: 0}
@@ -1991,7 +1991,12 @@ MonoBehaviour:
     CellSize: 4
     SoldierEdgeClamping: 1
     mode: 0
+    FactionRedColor: {r: 1, g: 0, b: 0, a: 1}
+    FactioBlueColor: {r: 0, g: 0, b: 1, a: 1}
     DrawRangesEnabled: 0
+    ComputeType: 1
+    GPUFOWShader: {fileID: 7200000, guid: e680570a74ede9a499ec55f493397638, type: 3}
+    FOWtex: {fileID: 0}
     WanderEnabled: 0
     ChangeFactionEnabled: 0
     PerformanceTestSoldiersCount: 200
@@ -2275,6 +2280,11 @@ PrefabInstance:
         type: 3}
       propertyPath: m_LocalEulerAnglesHint.z
       value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 4504156914483626748, guid: 924661e390b288242919bdfcdc1ea24e,
+        type: 3}
+      propertyPath: FactionId
+      value: 2
       objectReference: {fileID: 0}
     - target: {fileID: 6598020846460597979, guid: 924661e390b288242919bdfcdc1ea24e,
         type: 3}
