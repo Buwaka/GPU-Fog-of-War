@@ -20,6 +20,7 @@ namespace Assets.Modules.SimpleSoldiers._Move
 
             tex = new RenderTexture(numCells, numCells,24);
             tex.enableRandomWrite = true;
+            tex.filterMode = FilterMode.Point;
             tex.Create();
             fogOfWarSettings.FOWtex = tex;
 

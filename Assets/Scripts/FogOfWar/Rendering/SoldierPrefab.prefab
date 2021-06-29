@@ -55,6 +55,8 @@ MeshRenderer:
   m_MotionVectors: 1
   m_LightProbeUsage: 1
   m_ReflectionProbeUsage: 1
+  m_RayTracingMode: 2
+  m_RayTraceProcedural: 0
   m_RenderingLayerMask: 1
   m_RendererPriority: 0
   m_Materials:
@@ -79,6 +81,7 @@ MeshRenderer:
   m_SortingLayerID: 0
   m_SortingLayer: 0
   m_SortingOrder: 0
+  m_AdditionalVertexStreams: {fileID: 0}
 --- !u!65 &5476480381802622761
 BoxCollider:
   m_ObjectHideFlags: 0
@@ -146,6 +149,8 @@ MeshRenderer:
   m_MotionVectors: 1
   m_LightProbeUsage: 1
   m_ReflectionProbeUsage: 1
+  m_RayTracingMode: 2
+  m_RayTraceProcedural: 0
   m_RenderingLayerMask: 1
   m_RendererPriority: 0
   m_Materials:
@@ -170,6 +175,7 @@ MeshRenderer:
   m_SortingLayerID: 0
   m_SortingLayer: 0
   m_SortingOrder: 0
+  m_AdditionalVertexStreams: {fileID: 0}
 --- !u!1 &6598020846460597979
 GameObject:
   m_ObjectHideFlags: 0
@@ -216,6 +222,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   FactionId: 1
+  SoldierID: 0
   FactionA: {fileID: 2100000, guid: 0c4caaf68499d8443adb4b0ac0903dde, type: 2}
   FactionB: {fileID: 2100000, guid: 757ada303045dfb4386fe44c55e9bfc2, type: 2}
   renderer: {fileID: 9207347402339772359}
@@ -223,7 +230,6 @@ MonoBehaviour:
   HasMoveTarget: 0
   NextWander: 0
   Position: {x: 0, y: 0, z: 0}
-  FowLastCoord: {x: 0, y: 0}
-  FowSet: 0
+  LastPosition: {x: 0, y: 0, z: 0}
   ViewRange: 40
-  FowFactionId: 0
+  Rotation: {x: 0, y: 0, z: 0, w: 1}

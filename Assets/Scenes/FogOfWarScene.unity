@@ -1991,15 +1991,15 @@ MonoBehaviour:
     CellSize: 4
     SoldierEdgeClamping: 1
     mode: 0
-    FactionRedColor: {r: 1, g: 0, b: 0, a: 1}
-    FactioBlueColor: {r: 0, g: 0, b: 1, a: 1}
+    FactionRedColor: {r: 1, g: 0, b: 0, a: 0.5254902}
+    FactioBlueColor: {r: 0, g: 0, b: 1, a: 0.5529412}
     DrawRangesEnabled: 0
     ComputeType: 1
     GPUFOWShader: {fileID: 7200000, guid: e680570a74ede9a499ec55f493397638, type: 3}
     FOWtex: {fileID: 0}
     WanderEnabled: 0
     ChangeFactionEnabled: 0
-    PerformanceTestSoldiersCount: 200
+    PerformanceTestSoldiersCount: 2000
   SoldierPrefab: {fileID: 4504156914483626748, guid: 924661e390b288242919bdfcdc1ea24e,
     type: 3}
   Canvas: {fileID: 207219178}

@@ -40,6 +40,8 @@ float4 FactionBlueColor;
 //int FactionBlueID;
 float4 FactionRedColor;
 //int FactionRedID;
+
+float4 DefaultColor = float4(0, 0, 0, 0);
 CBUFFER_END
 
 const int _DataCount2;
@@ -79,7 +81,7 @@ const int _DataCount2;
 //	destination[RealTarget] |= result;
 //}
 
-float4 RGBAuintToFloat4(uint data)
+float4 RGBAuintToFloat4(in uint data)
 {
 	float4 destination;
 	
@@ -92,7 +94,7 @@ float4 RGBAuintToFloat4(uint data)
 }
 
 
-uint SetRGBAuint(float4 color)
+uint SetRGBAuint(in float4 color)
 {
 	uint r, g, b, a;
 	
@@ -110,7 +112,7 @@ uint SetRGBAuint(float4 color)
 	return r | g | b | a;
 }
 
-uint SetByteuint(uint4 data)
+uint SetByteuint(in uint4 data)
 {
 	uint a, b, c, d;
 	
@@ -126,12 +128,12 @@ uint SetByteuint(uint4 data)
 }
 
 //make sure offset is not greater than or equal to size of data type, 4 for uint
-uint SetSingleByteuint(uint value, uint offset)
+uint SetSingleByteuint(in uint value, in uint offset)
 {
 	return value << (8 * offset);
 }
 
-uint GetSingleByte(uint data, uint offset)
+uint GetSingleByte(in uint data, in uint offset)
 {
 	uint bitOffset = (8 * offset);
 	uint mask = 0x000000FF << bitOffset;
@@ -140,20 +142,20 @@ uint GetSingleByte(uint data, uint offset)
 
 }
 
-void DrawHorizontalLine(int a, int x, int y, int width, uint ID)
+void DrawHorizontalLine(in int a, in int x, in int y, in int width, uniform uint ID)
 {
 	//[loop]
-	for (int i = a; i < min(x, width); i++)
+	for (int i = max(a, 0); i < min(x, width); i++)
 	{
 		//uint2 position = uint2(i, y);
 		
 		uint target = (y * width) + i;
-		if (target >= 0 && target < FoWMap_Size * 4) //4 bytes per uint
+		if (target < FoWMap_Size * 4) //4 bytes per uint
 		{
 			//ORByteValue(target, _FOWData[ID].FactionID, _FoWMap);
 			uint index;
 			index = floor((float) target / 4); //4 bytes per uint
-			uint offset = index % 4;
+			uint offset = target % 4;
 			
 			InterlockedOr(_FoWMap[index], SetSingleByteuint(_FOWData[ID].FactionID, offset));
 
@@ -165,7 +167,7 @@ void DrawHorizontalLine(int a, int x, int y, int width, uint ID)
 	}
 	}
 
-void DrawLineWrapper(int a, int b, int x, int y, int width, uint ID)
+void DrawLineWrapper(in int a, in int b, in int x, in int y, in int width, uniform uint ID)
 {
 	DrawHorizontalLine(a - x, a + x, b + y, width, ID);
 	if (y != 0)
@@ -173,9 +175,9 @@ void DrawLineWrapper(int a, int b, int x, int y, int width, uint ID)
 }
 
 
-void DrawFullCircle(uint ID)
+void DrawFullCircle(uniform uint ID)
 {
-	int radius = ceil(_FOWData[ID].range / _CellSize);
+	int radius = round(_FOWData[ID].range / _CellSize);
 	int error = -radius;
 
 	int x = radius;
@@ -183,9 +185,9 @@ void DrawFullCircle(uint ID)
 
             //center of the circle
             //x
-	int a = ceil(_FOWData[ID].position.x / _CellSize);
+	int a = round(_FOWData[ID].position.x / _CellSize);
             //y
-	int b = ceil(_FOWData[ID].position.y / _CellSize);
+	int b = round(_FOWData[ID].position.y / _CellSize);
 	
 	//[loop]
 	while (x >= y)
@@ -193,7 +195,7 @@ void DrawFullCircle(uint ID)
 		int lastY = y;
 
 		error += y;
-		++y;
+		y += 1;
 		error += y;
 
 		DrawLineWrapper(a, b, x, lastY, _GridSize, ID);
@@ -204,9 +206,17 @@ void DrawFullCircle(uint ID)
 				DrawLineWrapper(a, b, lastY, x, _GridSize, ID);
 
 			error -= x;
-			--x;
+			x -= 1;
 			error -= x;
 		}
+	}
+}
+
+void InitArray(uint size)
+{
+	for (int i = 0; i < size; i++)
+	{
+		_FoWMap[i] = 0;
 	}
 }
 
@@ -226,6 +236,10 @@ void DrawFullCircle(uint ID)
 [numthreads(GroupSize, 1, 1)]
 void FOWMapGenerator(uint3 id : SV_DispatchThreadID)
 {
+
+	InitArray(FoWMap_Size);
+
+
 	uint width, height;
 	Result.GetDimensions(width, height);
 	uint mapsize = width * height;
@@ -236,7 +250,7 @@ void FOWMapGenerator(uint3 id : SV_DispatchThreadID)
 	for (uint i = 0; i < instPerThread; i++)
 	{
 		uint realID = (id.x * instPerThread) + i;
-		if (realID > (uint)_DataCount)
+		if (realID > (uint)_DataCount || _FOWData[realID].IsVisible == 0)
 			break;
 		
 		DrawFullCircle(realID);
@@ -255,7 +269,7 @@ void FOWMapGenerator(uint3 id : SV_DispatchThreadID)
 			break;
 		
 		//converting that 1D index to a 2D index
-		uint2 position = uint2(realID % width, floor(realID / width));
+		uint2 position = uint2(realID % width, round(realID / width));
 		
 		//index in bytepacked uint
 		uint index;
@@ -266,21 +280,13 @@ void FOWMapGenerator(uint3 id : SV_DispatchThreadID)
 		
 		if (data != 0)
 		{
-			if (data == 1)
-				Result[position] = FactionBlueColor;
-			if (data == 2)
-				Result[position] = FactionRedColor;
+			if (data & 1)
+				Result[position] += FactionBlueColor;
+			if (data & 2)
+				Result[position] += FactionRedColor;
 		}
 		else
-			Result[position] = float4(0, 1, 0, 1);
-		
-		//Result[position] = float4(0, 0.3 * (j % 4), 0, 1);
+			Result[position] = DefaultColor;
 	}
 	
-
-	//uint2 position = _FOWData[id.x].position / _GridSize;
-	//Result[position] = _FOWData[id.x].FactionID == 2 ? FactionRedColor : FactionBlueColor;
-
-
-	//Result[id.xy] = float4(id.r, id.g, id.b, 1);
-	}
+}
