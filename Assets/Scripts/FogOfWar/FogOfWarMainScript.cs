@@ -113,7 +113,7 @@ namespace DefaultNamespace
 
             updateFogOfWarRendering(visibleToFaction);
             renderSoldierRanges();
-            Debug.Log($"Fog Of War: {fowTime:0.00}ms - " +
+            Debug.Log($"Fog Of War: {fowTime:0.00000}ms - " +
                       $"Visibility: {visibilityTime:0.00}ms");
         }
 

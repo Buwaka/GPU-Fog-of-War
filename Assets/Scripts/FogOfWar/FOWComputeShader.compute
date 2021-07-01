@@ -1,6 +1,6 @@
 // Each #kernel tells which function to compile; you can have many kernels
 #pragma kernel FOWMapGenerator DEFINE_WITH_VALUE=1337
-#pragma enable_d3d11_debug_symbols
+//#pragma enable_d3d11_debug_symbols
 //#pragma exclude_renderers d3d11_9x
 //#pragma exclude_renderers d3d9
 
@@ -10,8 +10,6 @@
 #include "UnityCG.cginc"
 
 
-// Create a RenderTexture with enableRandomWrite flag and set it
-// with cs.SetTexture
 struct FOWData
 {
     float2 position;
@@ -20,10 +18,12 @@ struct FOWData
     int IsVisible;
 };
 
+//number of threads in each group
+#define GroupSize 64
 
 // groupshared is only allowed on basic types
 // 16-32 kb max depending on hardware, so lets pick 16kb as max
-// 500 uints = 4 bytes * 512 = 2048 tiles = 2048 bytes
+// 4096 uints = 4 bytes * 4096 = 16,384 tiles = 16,384 bytes = 16kb
 #define FoWMap_Size 4096
 groupshared uint _FoWMap[FoWMap_Size];
 
@@ -46,40 +46,40 @@ CBUFFER_END
 
 const int _DataCount2;
 
-#define GroupSize 64
 
-//float DistanceSqrt(float2 a, float2 b)
-//{
-//    float x = pow(a.x - b.x, 2);
-//    float y = pow(a.y - b.y, 2);
-//    return x + y;
-//}
+
+float DistanceSqrt(float2 a, float2 b)
+{
+    float x = pow(a.x - b.x, 2);
+    float y = pow(a.y - b.y, 2);
+    return x + y;
+}
 
 //its your own responsibility to make sure value is a number from 0 to 255, im not making any checks
-//void ORByteValue(uint target, uint value, out uint destination[FoWMap_Size])
-//{
-//	uint step = target % 4; //uint contains 4 bytes
-//	uint RealTarget = (target - step) / 4;
-//	uint result;
+void ORByteValue(uint target, uint value, out uint destination[FoWMap_Size])
+{
+	uint step = target % 4; //uint contains 4 bytes
+	uint RealTarget = (target - step) / 4;
+	uint result;
 	
-//	switch (step)
-//	{
-//		case 0:
-//			result = value;
-//			break;
-//		case 1:
-//			result = value << 8;
-//			break;
-//		case 2:
-//			result = value << 16;
-//			break;
-//		case 3:
-//			result = value << 24;
-//			break;
-//	}
+	switch (step)
+	{
+		case 0:
+			result = value;
+			break;
+		case 1:
+			result = value << 8;
+			break;
+		case 2:
+			result = value << 16;
+			break;
+		case 3:
+			result = value << 24;
+			break;
+	}
 
-//	destination[RealTarget] |= result;
-//}
+	destination[RealTarget] |= result;
+}
 
 float4 RGBAuintToFloat4(in uint data)
 {
@@ -139,33 +139,47 @@ uint GetSingleByte(in uint data, in uint offset)
 	uint mask = 0x000000FF << bitOffset;
 	
 	return (data & mask) >> bitOffset;
+}
 
+void SetBytePackedPixel(in uint x, in uint y, in uint width, in uint value)
+{
+	uint target = (y * width) + x;
+	if (target < FoWMap_Size * 4) //4 bytes per uint
+	{
+		uint index;
+		index = floor((float) target / 4); //4 bytes per uint
+		uint offset = target % 4;
+		
+		uint test = _FoWMap[index];
+			
+		InterlockedOr(_FoWMap[index], SetSingleByteuint(value, offset));
+	}
+}
+
+uint GetBytePackedPixel(in uint x, in uint y, in uint width)
+{
+	uint target = (y * width) + x;
+	if (target < FoWMap_Size * 4) //4 bytes per uint
+	{
+		uint index;
+		index = floor((float) target / 4); //4 bytes per uint
+		uint offset = target % 4;
+			
+		uint data = _FoWMap[index];
+		return GetSingleByte(data, offset);
+	}
+	
+	return 0;
 }
 
 void DrawHorizontalLine(in int a, in int x, in int y, in int width, uniform uint ID)
 {
-	//[loop]
+	[loop]
 	for (int i = max(a, 0); i < min(x, width); i++)
-	{
-		//uint2 position = uint2(i, y);
-		
-		uint target = (y * width) + i;
-		if (target < FoWMap_Size * 4) //4 bytes per uint
-		{
-			//ORByteValue(target, _FOWData[ID].FactionID, _FoWMap);
-			uint index;
-			index = floor((float) target / 4); //4 bytes per uint
-			uint offset = target % 4;
-			
-			InterlockedOr(_FoWMap[index], SetSingleByteuint(_FOWData[ID].FactionID, offset));
-
-			//if (_FOWData[ID].FactionID == 2)
-			//	InterlockedExchange(_FoWMap[index], SetRGBAuint(FactionRedColor), temp);
-			//else
-			//	InterlockedExchange(_FoWMap[index], SetRGBAuint(FactionBlueColor), temp);
-		}
+	{		
+		SetBytePackedPixel(i, y, width, _FOWData[ID].FactionID);
 	}
-	}
+}
 
 void DrawLineWrapper(in int a, in int b, in int x, in int y, in int width, uniform uint ID)
 {
@@ -214,12 +228,31 @@ void DrawFullCircle(uniform uint ID)
 
 void InitArray(uint size)
 {
-	for (int i = 0; i < size; i++)
+	for (uint i = 0; i < size; i++)
 	{
 		_FoWMap[i] = 0;
 	}
 }
 
+// not using this because it seems to be slower than just letting every thread do the whole array? For some reason? Could be compiler magic
+void InitArrayThreaded(uint threadID, uint sizePerThread)
+{
+	//clear atomic map
+
+	[unroll]
+	for (uint k = 0; k < sizePerThread; k++)
+	{
+		//current pixel index in 1D, based on thread ID
+		uint realID = (threadID * sizePerThread) + k;
+		if (realID > FoWMap_Size)
+			break;
+		
+		_FoWMap[realID] = 0;
+	}
+
+	//wait for all units to finish
+	GroupMemoryBarrierWithGroupSync();
+}
 
 
 //To understand the difference, a bit of hardware knowledge is required:
@@ -236,30 +269,37 @@ void InitArray(uint size)
 [numthreads(GroupSize, 1, 1)]
 void FOWMapGenerator(uint3 id : SV_DispatchThreadID)
 {
-
+	uint width = _GridSize;
+	uint mapsize = _GridSize * _GridSize;
+	uint instPerThread;
+	
+	
 	InitArray(FoWMap_Size);
 
-
-	uint width, height;
-	Result.GetDimensions(width, height);
-	uint mapsize = width * height;
 	
-	uint instPerThread = (uint) ceil((float) _DataCount / GroupSize);
-	
+	//draw units on atomic map
+	instPerThread = (uint) ceil((float) _DataCount / GroupSize);
 	[loop]
 	for (uint i = 0; i < instPerThread; i++)
 	{
 		uint realID = (id.x * instPerThread) + i;
-		if (realID > (uint)_DataCount || _FOWData[realID].IsVisible == 0)
+		
+		//exit loop if thread has no job
+		if (realID > (uint)_DataCount)
 			break;
+		//skip if unit is not visible
+		//can probably remove this alltogether
+		if (_FOWData[realID].IsVisible == 0)
+			continue;
 		
 		DrawFullCircle(realID);
 	}
-	
+	//wait for all units to finish
 	GroupMemoryBarrierWithGroupSync();
 	
-	instPerThread = (uint) ceil((float)	mapsize / GroupSize);
 	
+	//read atomic map and write on result texture
+	instPerThread = (uint) ceil((float)	mapsize / GroupSize);
 	[loop]
 	for (uint j = 0; j < instPerThread; j++)
 	{
@@ -271,22 +311,18 @@ void FOWMapGenerator(uint3 id : SV_DispatchThreadID)
 		//converting that 1D index to a 2D index
 		uint2 position = uint2(realID % width, round(realID / width));
 		
-		//index in bytepacked uint
-		uint index;
-		index = floor((float) realID / 4); //4 bytes per uint
-		uint offset = index % 4;
-		
-		uint data = GetSingleByte(_FoWMap[index], offset);
+		uint data = GetBytePackedPixel(position.x, position.y, width);
 		
 		if (data != 0)
 		{
+			Result[position] = 0;
 			if (data & 1)
 				Result[position] += FactionBlueColor;
 			if (data & 2)
 				Result[position] += FactionRedColor;
 		}
 		else
-			Result[position] = DefaultColor;
+			Result[position] = (position.x + position.y) % 2 > 0 ? DefaultColor : float4(0, 0, 0, 1); //checker board
 	}
 	
 }

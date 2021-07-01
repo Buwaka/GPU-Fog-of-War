@@ -134,13 +134,6 @@ namespace FogOfWar
                 return;
             }
 
-            i++;
-            //if (i % 4 != 0)
-            //    return;
-
-            settings.FOWtex.Release();
-            settings.FOWtex.Create();
-
             int kernel = FOWComputeShader.FindKernel("FOWMapGenerator");
 
             FOWComputeShader.SetInt("_DataCount", FOWdata.Count);
@@ -155,6 +148,7 @@ namespace FogOfWar
 
 
             FOWDataBuffer.Dispose();
+            FOWdata.Clear();
         }
 
             /// <summary>
