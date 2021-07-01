@@ -23,6 +23,7 @@ namespace FogOfWar
         /// Number of cells in the grid, in one dimension
         /// </summary>
         [Header("Map settings")] public int GridSize = 128;
+        public int MapSize = 4096;
 
         /// <summary>
         /// World space size of a single cell

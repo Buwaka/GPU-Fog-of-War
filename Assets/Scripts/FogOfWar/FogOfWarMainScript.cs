@@ -40,8 +40,8 @@ namespace DefaultNamespace
 
 
 
-            GroundPlane.localScale = Settings.CellSize *Settings. GridSize * 0.1f * Vector3.one;
-            GroundPlane.position = new Vector3((Settings.GridSize * Settings.CellSize) * 0.5f, 0, (Settings.GridSize * Settings.CellSize) * 0.5f);
+            GroundPlane.localScale = Settings.MapSize * 0.1f * Vector3.one;
+            GroundPlane.position = new Vector3((Settings.MapSize) * 0.5f, 0, (Settings.MapSize) * 0.5f);
             Decal.Initialize(new Vector2(0, 0), Settings.CellSize,Settings. GridSize, Settings);
             soldiers = FindObjectsOfType<SoldierScript>().ToList();
             Random.InitState(0);

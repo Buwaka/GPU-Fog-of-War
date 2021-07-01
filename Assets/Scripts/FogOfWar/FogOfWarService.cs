@@ -121,7 +121,7 @@ namespace FogOfWar
             FOWdata.Clear();
         }
 
-        int i = 0;
+
         public void UpdateFogOfWarGPU(List<SoldierScript> soldiers, byte[] outVisibleToFaction, uint size)
         {
             if (FOWdata.Count == 0)

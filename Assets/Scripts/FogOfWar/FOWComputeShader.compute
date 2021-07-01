@@ -27,7 +27,7 @@ struct FOWData
 #define FoWMap_Size 4096
 groupshared uint _FoWMap[FoWMap_Size];
 
-RWTexture2D<float4> Result;
+RWTexture2DArray<float4> Result;
 StructuredBuffer<FOWData> _FOWData;
 
 CBUFFER_START(Params)
@@ -189,7 +189,7 @@ void DrawLineWrapper(in int a, in int b, in int x, in int y, in int width, unifo
 }
 
 
-void DrawFullCircle(uniform uint ID)
+void DrawFullCircle(uniform uint ID, in uint width)
 {
 	int radius = round(_FOWData[ID].range / _CellSize);
 	int error = -radius;
@@ -212,12 +212,12 @@ void DrawFullCircle(uniform uint ID)
 		y += 1;
 		error += y;
 
-		DrawLineWrapper(a, b, x, lastY, _GridSize, ID);
+		DrawLineWrapper(a, b, x, lastY, width, ID);
 
 		if (error >= 0)
 		{
 			if (x != lastY)
-				DrawLineWrapper(a, b, lastY, x, _GridSize, ID);
+				DrawLineWrapper(a, b, lastY, x, width, ID);
 
 			error -= x;
 			x -= 1;
@@ -267,7 +267,7 @@ void InitArrayThreaded(uint threadID, uint sizePerThread)
 //https://stackoverflow.com/questions/63034523/difference-between-calling-numthreads-and-dispatch-in-a-unity-compute-shader
 
 [numthreads(GroupSize, 1, 1)]
-void FOWMapGenerator(uint3 id : SV_DispatchThreadID)
+void FOWMapGenerator(uint3 id : SV_DispatchThreadID, uint3 Group : SV_GroupID)
 {
 	uint width = _GridSize;
 	uint mapsize = _GridSize * _GridSize;
@@ -292,7 +292,7 @@ void FOWMapGenerator(uint3 id : SV_DispatchThreadID)
 		if (_FOWData[realID].IsVisible == 0)
 			continue;
 		
-		DrawFullCircle(realID);
+		DrawFullCircle(realID, width);
 	}
 	//wait for all units to finish
 	GroupMemoryBarrierWithGroupSync();
@@ -309,7 +309,7 @@ void FOWMapGenerator(uint3 id : SV_DispatchThreadID)
 			break;
 		
 		//converting that 1D index to a 2D index
-		uint2 position = uint2(realID % width, round(realID / width));
+		uint3 position = uint3(realID % width, round(realID / width), Group.x);
 		
 		uint data = GetBytePackedPixel(position.x, position.y, width);
 		

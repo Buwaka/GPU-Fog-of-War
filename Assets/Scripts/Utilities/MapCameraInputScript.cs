@@ -14,7 +14,7 @@ namespace Assets.Homm
         /// </summary>
         public float MaxDeltaThreshold = 10;
 
-        public float MinZoom = 0.5f;
+        public float MinZoom = 0.01f;
         public float MaxZoom = 2;
         public float ZoomSpeed = 0.9f;
         private float zoom = 1;
