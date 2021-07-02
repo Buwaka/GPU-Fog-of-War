@@ -61,8 +61,8 @@ namespace Assets.Modules.SimpleSoldiers._Move
 
             for (int i = 0; i < GridCountTotal; i++)
             {
-                float left = (i % settings.GridSize) * size;
-                float bottom = ((float)i / settings.GridSize) * size;
+                float left = (i % GridCountRow) * size;
+                float bottom = Mathf.Floor((float)i / GridCountRow) * size;
 
                 var pl = Instantiate<GameObject>(Plane);
                 pl.transform.position = new Vector3(left + (size * 0.5f), Plane.transform.position.y, bottom + (size * 0.5f));

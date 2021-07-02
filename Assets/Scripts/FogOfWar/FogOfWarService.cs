@@ -6,14 +6,30 @@ using UnityEngine;
 
 namespace FogOfWar
 {
+
     public struct FogOfWarData
     {
+        public uint MapID;
         public Vector2 Position;
         public float Range;
         public int FactionID;
-        public int IsVisible;
+
 
         public const int size = ((sizeof(float) * 3) + (sizeof(int) * 2));
+    }
+
+    public struct FogOfWarIndex
+    {
+        public uint index;
+        public uint count;
+
+        public FogOfWarIndex(uint index, uint count)
+        {
+            this.index = index;
+            this.count = count;
+        }
+
+        public const int size = sizeof(int) * 2;
     }
 
     /// <summary>
@@ -23,7 +39,10 @@ namespace FogOfWar
     {
         private FogOfWarSettings settings;
 
-        private Dictionary<uint,FogOfWarData> FOWdata = new Dictionary<uint, FogOfWarData>(200); //finda better heuristic instead of 200
+        private SortedList<uint,FogOfWarData> FoWData = new SortedList<uint, FogOfWarData>(200); //finda better heuristic instead of 200
+        //private List<FogOfWarData> FOWdata = new List<FogOfWarData>(200);
+        private List<FogOfWarIndex> FoWData_Indieces;
+        //private Tuple<uint, uint>[] FoWData_Indieces;
 
         private ComputeShader FOWComputeShader;
         //private ComputeBuffer[] FOWDataBuffer;
@@ -49,11 +68,26 @@ namespace FogOfWar
             }
         }
 
+        void Start()
+        {
+            FoWData.OrderBy(i => i.Value.MapID);
+        }
+
         public void RegisterSettings(FogOfWarSettings settings)
         {
             // settings.CellSize; world space size of cell
             // settings.GridSize; number of cells in one dimension
             this.settings = settings;
+
+            FoWData_Indieces = new List<FogOfWarIndex>(settings.GridCountTotal);
+            FogOfWarIndex temp;
+            temp.index = 0;
+            temp.count = 0;
+            for (int i = 0; i < settings.GridCountTotal; i++)
+            {
+                FoWData_Indieces.Add(temp);
+            }
+                
 
             InitShader(settings);
         }
@@ -70,6 +104,7 @@ namespace FogOfWar
             FOWComputeShader.SetVector("FactionBlueColor", settings.FactioBlueColor);
             FOWComputeShader.SetFloat("_GridSize", settings.GridSize);
             FOWComputeShader.SetFloat("_CellSize", settings.CellSize);
+            FOWComputeShader.SetFloat("_MapSize", settings.MapSize);
 
             //FOWComputeShader.SetTexture(kernel, "Result", settings.FOWtex);
             FOWComputeShader.SetTextureFromGlobal(kernel, "_FoWMap", "_FoWMap_Global");
@@ -105,29 +140,27 @@ namespace FogOfWar
         {
             Array.Clear(outVisibleToFaction, 0, (int) size);
 
-            foreach (var entry in FOWdata)
+            foreach (var entry in FoWData)
             {
-                var ID = entry.Key;
+
                 var data = entry.Value;
 
                 //clean last position
                 //Algorithms.MidPointCircle.DrawFullCircle(data.LastPosition, data.Range, settings.GridSize, settings.CellSize, 0, outVisibleToFaction, false);
 
-                if (data.IsVisible > 0)
-                {
-                    byte value = (byte)(data.FactionID);
 
-                    Algorithms.MidPointCircle.DrawFullCircle(data.Position, data.Range, settings.GridSize, settings.CellSize, value, outVisibleToFaction, size, false);
-                }
+                byte value = (byte)(data.FactionID);
+
+                Algorithms.MidPointCircle.DrawFullCircle(data.Position, data.Range, settings.GridSize, settings.CellSize, value, outVisibleToFaction, size, false);
             }
 
-            FOWdata.Clear();
+            //FOWdata.Clear();
         }
 
 
         public void UpdateFogOfWarGPU(List<SoldierScript> soldiers, byte[] outVisibleToFaction, uint size)
         {
-            if (FOWdata.Count == 0)
+            if (FoWData.Count == 0)
                 return;
 
             int MapSize = settings.GridSize * settings.GridSize;
@@ -137,21 +170,36 @@ namespace FogOfWar
                 return;
             }
 
+            //here we would sort the FoWData, but it is already sorted
+
+            uint i = 0;
+            while (i < FoWData.Count)
+            {
+                var data = FoWData.Values[(int)i];
+
+                uint count = FoWData_Indieces[(int)data.MapID].count;
+
+                FoWData_Indieces[(int)data.MapID] = new FogOfWarIndex(i, count);
+                i += count;
+            }
+
+
             int kernel = FOWComputeShader.FindKernel("FOWMapGenerator");
 
-            FOWComputeShader.SetInt("_DataCount", FOWdata.Count);
-
-            ComputeBuffer FOWDataBuffer = new ComputeBuffer(FOWdata.Count, FogOfWarData.size, ComputeBufferType.Structured);
-            FOWDataBuffer.SetData(FOWdata.Values.ToArray());
+            ComputeBuffer FOWDataBuffer = new ComputeBuffer(FoWData.Count, FogOfWarData.size, ComputeBufferType.Structured);
+            FOWDataBuffer.SetData(FoWData.Values.ToArray());
             FOWComputeShader.SetBuffer(kernel, "_FoWData", FOWDataBuffer);
 
-            int ThreadCount = Mathf.CeilToInt((float)FOWdata.Count / ThreadGroupSizeX);
-            FOWComputeShader.SetInt("_DispatchThreadCount", ThreadCount);
-            FOWComputeShader.Dispatch(kernel, 1, 1, 1);
+            ComputeBuffer FOWIndexBuffer = new ComputeBuffer(settings.GridCountTotal, FogOfWarIndex.size, ComputeBufferType.Structured);
+            FOWIndexBuffer.SetData(FoWData_Indieces);
+            FOWComputeShader.SetBuffer(kernel, "_DataCountPerMap", FOWIndexBuffer);
+
+            FOWComputeShader.Dispatch(kernel, settings.GridCountTotal, 1, 1);
 
 
             FOWDataBuffer.Dispose();
-            FOWdata.Clear();
+            FOWIndexBuffer.Dispose();
+            //FOWdata.Clear();
         }
 
             /// <summary>
@@ -164,26 +212,56 @@ namespace FogOfWar
             /// <param name="soldiers"></param>
             /// <param name="visibleToFaction"></param>
             public void UpdateSoldierVisibilities(List<SoldierScript> soldiers, byte[] visibleToFaction, uint size)
-        {
-            foreach (var s in soldiers)
             {
-                if(settings.mode == FogOfWarSettings.Mode.All || s.FactionId == (int) settings.mode)
-                {
-                    s.SetVisible(true);
-                }
-                else
-                {
-                    s.SetVisible(false);
-                }
+                //foreach (var s in soldiers)
+                //{
+                //    if(settings.mode == FogOfWarSettings.Mode.All || s.FactionId == (int) settings.mode)
+                //    {
+                //        s.SetVisible(true);
+                //    }
+                //    else
+                //    {
+                //        s.SetVisible(false);
+                //    }
+                //}
             }
-        }
 
         public void RegisterFOWData(uint ID, FogOfWarData data)
         {
-            if (FOWdata.ContainsKey(ID))
-                FOWdata[ID] = data;
+            FogOfWarData temp = data;
+
+            Vector2 tilePosition = temp.Position / settings.CellSize / settings.GridSize;
+            int GridCountRow = settings.MapSize / settings.GridSize;
+            temp.MapID = (uint) ((Mathf.Floor(tilePosition.y) * GridCountRow) + Mathf.FloorToInt(tilePosition.x));
+
+            if(temp.MapID > settings.GridCountTotal)
+            {
+                Debug.Log("Failed to register FoW Data, unit is outside of the FoW area");
+                return;
+            }
+
+            //Debug.Log("soldier on MapID " + temp.MapID.ToString());
+
+            if (FoWData.ContainsKey(ID))
+            {
+                var last = FoWData_Indieces[(int)FoWData[ID].MapID];
+                FoWData_Indieces[(int)FoWData[ID].MapID] = new FogOfWarIndex(last.index, last.count - 1);
+                var newer = FoWData_Indieces[(int)temp.MapID];
+                FoWData_Indieces[(int)temp.MapID] = new FogOfWarIndex(newer.index, newer.count + 1);
+
+
+                FoWData[ID] = temp;
+            }
+
             else
-                FOWdata.Add(ID, data);
+            {
+                FoWData.Add(ID, temp);
+
+                var newer = FoWData_Indieces[(int)temp.MapID];
+                FoWData_Indieces[(int)temp.MapID] = new FogOfWarIndex(newer.index, newer.count + 1);
+
+            }
+
         }
     }
 }

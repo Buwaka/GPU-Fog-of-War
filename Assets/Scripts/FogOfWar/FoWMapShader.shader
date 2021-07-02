@@ -57,7 +57,7 @@ Shader "Unlit/FoWMapShader"
             fixed4 frag (v2f i) : SV_Target
             {
                 // sample the texture
-				fixed4 col = _FoWMap_Global.Sample(sampler_FoWMap_Global,float3(i.uv.x, i.uv.y, 0));
+				fixed4 col = _FoWMap_Global.Sample(sampler_FoWMap_Global,float3(i.uv.x, i.uv.y, _FoWMapID));
                 // apply fog
                 UNITY_APPLY_FOG(i.fogCoord, col);
                 return col;

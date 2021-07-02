@@ -25,6 +25,9 @@ namespace FogOfWar
         [Header("Map settings")] public int GridSize = 128;
         public int MapSize = 4096;
 
+        public int GridCountRow { get { return MapSize / GridSize; } }
+        public int GridCountTotal { get { return GridCountRow * GridCountRow; } }
+
         /// <summary>
         /// World space size of a single cell
         /// </summary>

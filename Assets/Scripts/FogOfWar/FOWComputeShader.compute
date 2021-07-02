@@ -12,10 +12,16 @@
 
 struct FoWData
 {
+	uint MapID;
     float2 position;
     float range;
     int FactionID;
-    int IsVisible;
+};
+
+struct FoWDataHeader
+{
+	uint index;
+	uint count;
 };
 
 //number of threads in each group
@@ -30,11 +36,14 @@ groupshared uint _FoWMapCache[FoWMap_Size];
 StructuredBuffer<FoWData> _FoWData;
 uniform RWTexture2DArray<float4> _FoWMap;
 
+StructuredBuffer<FoWDataHeader> _DataCountPerMap;
+
 CBUFFER_START(Params)
-int _DispatchThreadCount;
-int _DataCount;
 float _GridSize;
 float _CellSize;
+float _MapSize;
+
+
 
 float4 FactionBlueColor;
 //int FactionBlueID;
@@ -189,7 +198,7 @@ void DrawLineWrapper(in int a, in int b, in int x, in int y, in int width, unifo
 }
 
 
-void DrawFullCircle(uniform uint ID, in uint width)
+void DrawFullCircle(uniform uint ID, in uint width, in int2 offset)
 {
 	int radius = round(_FoWData[ID].range / _CellSize);
 	int error = -radius;
@@ -197,11 +206,11 @@ void DrawFullCircle(uniform uint ID, in uint width)
 	int x = radius;
 	int y = 0;
 
-            //center of the circle
-            //x
-	int a = round(_FoWData[ID].position.x / _CellSize);
-            //y
-	int b = round(_FoWData[ID].position.y / _CellSize);
+    //center of the circle
+    //x
+	int a = round(_FoWData[ID].position.x / _CellSize) + offset.x;
+    //y
+	int b = round(_FoWData[ID].position.y / _CellSize) + offset.y;
 	
 	//[loop]
 	while (x >= y)
@@ -267,49 +276,59 @@ void InitArrayThreaded(uint threadID, uint sizePerThread)
 //https://stackoverflow.com/questions/63034523/difference-between-calling-numthreads-and-dispatch-in-a-unity-compute-shader
 
 [numthreads(GroupSize, 1, 1)]
-void FOWMapGenerator(uint3 id : SV_DispatchThreadID, uint3 Group : SV_GroupID)
+void FOWMapGenerator(uint3 id : SV_GroupThreadID, uint3 Group : SV_GroupID)
 {
 	uint width = _GridSize;
-	uint mapsize = _GridSize * _GridSize;
-	uint instPerThread;
-	
+	uint gridSize = _GridSize * _GridSize;
+	uint gridsPerRow = _MapSize / _GridSize;
+
+	uint instPerThread; // how many units/pixels that need to be drawn per thread
+	uint mapIndex = _DataCountPerMap[Group.x].index; // starting point in Data array
+	uint dataCount = _DataCountPerMap[Group.x].count; // number of units to draw on the map
+	uint Null;
+
+	//_FoWData.GetDimensions(dataCount, Null);
 	
 	InitArray(FoWMap_Size);
 
 	
 	//draw units on atomic map
-	instPerThread = (uint) ceil((float) _DataCount / GroupSize);
+	instPerThread = (uint) ceil((float) dataCount / GroupSize);
 	[loop]
 	for (uint i = 0; i < instPerThread; i++)
 	{
-		uint realID = (id.x * instPerThread) + i;
+		uint realID = mapIndex + ((id.x * instPerThread) + i);
 		
 		//exit loop if thread has no job
-		if (realID > (uint)_DataCount)
+		if (realID > (uint) dataCount)
 			break;
 		//skip if unit is not visible
 		//can probably remove this alltogether
-		if (_FoWData[realID].IsVisible == 0)
-			continue;
+		//if (_FoWData[realID].IsVisible == 0)
+		//	continue;
 		
-		DrawFullCircle(realID, width);
+		int2 offset;
+		offset.x = -(Group.x % gridsPerRow * _GridSize);
+		offset.y = -floor((Group.x / gridsPerRow) * _GridSize);
+		
+		DrawFullCircle(realID, width, offset);
 	}
 	//wait for all units to finish
 	GroupMemoryBarrierWithGroupSync();
 	
 	
 	//read atomic map and write on _FoWMap texture
-	instPerThread = (uint) ceil((float)	mapsize / GroupSize);
+	instPerThread = (uint) ceil((float) gridSize / GroupSize);
 	[loop]
 	for (uint j = 0; j < instPerThread; j++)
 	{
 		//current pixel index in 1D, based on thread ID
 		uint realID = (id.x * instPerThread) + j;
-		if (realID > mapsize)
+		if (realID > gridSize)
 			break;
 		
 		//converting that 1D index to a 2D index
-		uint3 position = uint3(realID % width, round(realID / width), Group.x);
+		uint3 position = uint3(realID % width, floor(realID / width), Group.x);
 		
 		uint data = GetBytePackedPixel(position.x, position.y, width);
 		

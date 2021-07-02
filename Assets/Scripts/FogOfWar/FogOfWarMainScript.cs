@@ -157,8 +157,8 @@ namespace DefaultNamespace
         private void spawnRandomSoldier()
         {
             var pos = new Vector3(
-                Random.value * (Settings.GridSize *Settings. CellSize - Settings.SoldierEdgeClamping * 2) + Settings.SoldierEdgeClamping, 0,
-                Random.value * (Settings.GridSize * Settings.CellSize - Settings.SoldierEdgeClamping * 2) + Settings.SoldierEdgeClamping);
+                Random.value * (Settings.MapSize - Settings.SoldierEdgeClamping * 2) + Settings.SoldierEdgeClamping, 0,
+                Random.value * (Settings.MapSize - Settings.SoldierEdgeClamping * 2) + Settings.SoldierEdgeClamping);
             var faction = Random.Range(1, 3);
             var s = Instantiate(SoldierPrefab);
             soldiers.Add(s);
