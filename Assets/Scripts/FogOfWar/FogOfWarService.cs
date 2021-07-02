@@ -70,8 +70,11 @@ namespace FogOfWar
             FOWComputeShader.SetVector("FactionBlueColor", settings.FactioBlueColor);
             FOWComputeShader.SetFloat("_GridSize", settings.GridSize);
             FOWComputeShader.SetFloat("_CellSize", settings.CellSize);
-            
-            FOWComputeShader.SetTexture(kernel, "Result", settings.FOWtex);
+
+            //FOWComputeShader.SetTexture(kernel, "Result", settings.FOWtex);
+            FOWComputeShader.SetTextureFromGlobal(kernel, "_FoWMap", "_FoWMap_Global");
+
+
             FOWComputeShader.GetKernelThreadGroupSizes(kernel, out ThreadGroupSizeX, out ThreadGroupSizeY, out ThreadGroupSizeZ);
 
             //FOWDataBuffer[0] = new ComputeBuffer(FOWdata.Count, FogOfWarData.size, ComputeBufferType.Structured);
@@ -140,7 +143,7 @@ namespace FogOfWar
 
             ComputeBuffer FOWDataBuffer = new ComputeBuffer(FOWdata.Count, FogOfWarData.size, ComputeBufferType.Structured);
             FOWDataBuffer.SetData(FOWdata.Values.ToArray());
-            FOWComputeShader.SetBuffer(kernel, "_FOWData", FOWDataBuffer);
+            FOWComputeShader.SetBuffer(kernel, "_FoWData", FOWDataBuffer);
 
             int ThreadCount = Mathf.CeilToInt((float)FOWdata.Count / ThreadGroupSizeX);
             FOWComputeShader.SetInt("_DispatchThreadCount", ThreadCount);

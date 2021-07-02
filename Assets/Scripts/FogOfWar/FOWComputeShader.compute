@@ -1,6 +1,6 @@
 // Each #kernel tells which function to compile; you can have many kernels
 #pragma kernel FOWMapGenerator DEFINE_WITH_VALUE=1337
-//#pragma enable_d3d11_debug_symbols
+#pragma enable_d3d11_debug_symbols
 //#pragma exclude_renderers d3d11_9x
 //#pragma exclude_renderers d3d9
 
@@ -10,7 +10,7 @@
 #include "UnityCG.cginc"
 
 
-struct FOWData
+struct FoWData
 {
     float2 position;
     float range;
@@ -25,10 +25,10 @@ struct FOWData
 // 16-32 kb max depending on hardware, so lets pick 16kb as max
 // 4096 uints = 4 bytes * 4096 = 16,384 tiles = 16,384 bytes = 16kb
 #define FoWMap_Size 4096
-groupshared uint _FoWMap[FoWMap_Size];
+groupshared uint _FoWMapCache[FoWMap_Size];
 
-RWTexture2DArray<float4> Result;
-StructuredBuffer<FOWData> _FOWData;
+StructuredBuffer<FoWData> _FoWData;
+uniform RWTexture2DArray<float4> _FoWMap;
 
 CBUFFER_START(Params)
 int _DispatchThreadCount;
@@ -60,25 +60,25 @@ void ORByteValue(uint target, uint value, out uint destination[FoWMap_Size])
 {
 	uint step = target % 4; //uint contains 4 bytes
 	uint RealTarget = (target - step) / 4;
-	uint result;
+	uint data;
 	
 	switch (step)
 	{
 		case 0:
-			result = value;
+			data = value;
 			break;
 		case 1:
-			result = value << 8;
+			data = value << 8;
 			break;
 		case 2:
-			result = value << 16;
+			data = value << 16;
 			break;
 		case 3:
-			result = value << 24;
+			data = value << 24;
 			break;
 	}
 
-	destination[RealTarget] |= result;
+	destination[RealTarget] |= data;
 }
 
 float4 RGBAuintToFloat4(in uint data)
@@ -150,9 +150,9 @@ void SetBytePackedPixel(in uint x, in uint y, in uint width, in uint value)
 		index = floor((float) target / 4); //4 bytes per uint
 		uint offset = target % 4;
 		
-		uint test = _FoWMap[index];
+		uint test = _FoWMapCache[index];
 			
-		InterlockedOr(_FoWMap[index], SetSingleByteuint(value, offset));
+		InterlockedOr(_FoWMapCache[index], SetSingleByteuint(value, offset));
 	}
 }
 
@@ -165,7 +165,7 @@ uint GetBytePackedPixel(in uint x, in uint y, in uint width)
 		index = floor((float) target / 4); //4 bytes per uint
 		uint offset = target % 4;
 			
-		uint data = _FoWMap[index];
+		uint data = _FoWMapCache[index];
 		return GetSingleByte(data, offset);
 	}
 	
@@ -177,7 +177,7 @@ void DrawHorizontalLine(in int a, in int x, in int y, in int width, uniform uint
 	[loop]
 	for (int i = max(a, 0); i < min(x, width); i++)
 	{		
-		SetBytePackedPixel(i, y, width, _FOWData[ID].FactionID);
+		SetBytePackedPixel(i, y, width, _FoWData[ID].FactionID);
 	}
 }
 
@@ -191,7 +191,7 @@ void DrawLineWrapper(in int a, in int b, in int x, in int y, in int width, unifo
 
 void DrawFullCircle(uniform uint ID, in uint width)
 {
-	int radius = round(_FOWData[ID].range / _CellSize);
+	int radius = round(_FoWData[ID].range / _CellSize);
 	int error = -radius;
 
 	int x = radius;
@@ -199,9 +199,9 @@ void DrawFullCircle(uniform uint ID, in uint width)
 
             //center of the circle
             //x
-	int a = round(_FOWData[ID].position.x / _CellSize);
+	int a = round(_FoWData[ID].position.x / _CellSize);
             //y
-	int b = round(_FOWData[ID].position.y / _CellSize);
+	int b = round(_FoWData[ID].position.y / _CellSize);
 	
 	//[loop]
 	while (x >= y)
@@ -230,7 +230,7 @@ void InitArray(uint size)
 {
 	for (uint i = 0; i < size; i++)
 	{
-		_FoWMap[i] = 0;
+		_FoWMapCache[i] = 0;
 	}
 }
 
@@ -247,7 +247,7 @@ void InitArrayThreaded(uint threadID, uint sizePerThread)
 		if (realID > FoWMap_Size)
 			break;
 		
-		_FoWMap[realID] = 0;
+		_FoWMapCache[realID] = 0;
 	}
 
 	//wait for all units to finish
@@ -262,7 +262,7 @@ void InitArrayThreaded(uint threadID, uint sizePerThread)
 //So, with 32 threads per wave font, the hardware would schedule one wave font per shader group, with 8 active threads in that wave font (the other 24 threads are "inactive", meaning they do the same work, but are discarding any memory writes). 
 //Then, with Dispatch(1, 1, 1), you are dispatching one such shader group, meaning there will be one wave font running on the hardware.
 //Would you use [numthreads(1,1,1)] instead, only one thread in a wave font could be active. 
-//So, by calling Dispatch(8, 1, 1) on that one, the hardware would require to run 8 shader groups (= 8 wave fonts), each one running just with 1/32 active threads, so while you would get the same result, you would waste a lot more computational power.
+//So, by calling Dispatch(8, 1, 1) on that one, the hardware would require to run 8 shader groups (= 8 wave fonts), each one running just with 1/32 active threads, so while you would get the same _FoWMap, you would waste a lot more computational power.
 //So, in general, for optimal performance you want to have shader group sizes that are multiples of 32 (or 64), while trying to call Dispatch with as low numbers as reasonable possible.
 //https://stackoverflow.com/questions/63034523/difference-between-calling-numthreads-and-dispatch-in-a-unity-compute-shader
 
@@ -289,7 +289,7 @@ void FOWMapGenerator(uint3 id : SV_DispatchThreadID, uint3 Group : SV_GroupID)
 			break;
 		//skip if unit is not visible
 		//can probably remove this alltogether
-		if (_FOWData[realID].IsVisible == 0)
+		if (_FoWData[realID].IsVisible == 0)
 			continue;
 		
 		DrawFullCircle(realID, width);
@@ -298,7 +298,7 @@ void FOWMapGenerator(uint3 id : SV_DispatchThreadID, uint3 Group : SV_GroupID)
 	GroupMemoryBarrierWithGroupSync();
 	
 	
-	//read atomic map and write on result texture
+	//read atomic map and write on _FoWMap texture
 	instPerThread = (uint) ceil((float)	mapsize / GroupSize);
 	[loop]
 	for (uint j = 0; j < instPerThread; j++)
@@ -315,14 +315,14 @@ void FOWMapGenerator(uint3 id : SV_DispatchThreadID, uint3 Group : SV_GroupID)
 		
 		if (data != 0)
 		{
-			Result[position] = 0;
+			_FoWMap[position] = 0;
 			if (data & 1)
-				Result[position] += FactionBlueColor;
+				_FoWMap[position] += FactionBlueColor;
 			if (data & 2)
-				Result[position] += FactionRedColor;
+				_FoWMap[position] += FactionRedColor;
 		}
 		else
-			Result[position] = (position.x + position.y) % 2 > 0 ? DefaultColor : float4(0, 0, 0, 1); //checker board
+			_FoWMap[position] = (position.x + position.y) % 2 > 0 ? DefaultColor : float4(0, 0, 0, 1); //checker board
 	}
 	
 }

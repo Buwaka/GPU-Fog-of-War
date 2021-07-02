@@ -7,6 +7,14 @@ namespace Assets.Modules.SimpleSoldiers._Move
 {
     public class DebugDecalScript : MonoBehaviour
     {
+        public Material FoWMapMaterial;
+        public GameObject Plane;
+        private GameObject[] Planes;
+        private Texture2D tex2D;
+        private RenderTexture tex;
+        private Color[] data;
+        private FogOfWarSettings fogOfWarSettings;
+
 
         public void Initialize(Vector2 lowerLeft, float cellSize, int numCells, FogOfWarSettings fogOfWarSettings)
         {
@@ -22,7 +30,7 @@ namespace Assets.Modules.SimpleSoldiers._Move
             //Plane.GetComponent<MeshRenderer>().material.mainTexture = tex2D;
 
             if (fogOfWarSettings.ComputeType == FogOfWarSettings.ComputeMethod.CPU)
-                Plane.GetComponent<MeshRenderer>().material.mainTexture = tex2D;
+                Plane.GetComponent<MeshRenderer>().sharedMaterial.mainTexture = tex2D;
             else
                 SpawnPlanes(fogOfWarSettings);
 
@@ -33,42 +41,40 @@ namespace Assets.Modules.SimpleSoldiers._Move
         {
             int GridCountRow = settings.MapSize / settings.GridSize;
             int GridCountTotal = GridCountRow * GridCountRow;
-            int size = settings.GridSize;
+            float size = settings.GridSize * settings.CellSize;
 
 
             RenderTextureDescriptor d = new RenderTextureDescriptor(settings.GridSize, settings.GridSize, RenderTextureFormat.ARGB32);
             d.dimension = UnityEngine.Rendering.TextureDimension.Tex2DArray;
-            d.volumeDepth = GridCountTotal;
+            d.volumeDepth = GridCountTotal; // how many maps we want
+            d.enableRandomWrite = true;
+            
 
             settings.FOWtex = new RenderTexture(d);
+            settings.FOWtex.name = "FoWMap";
             settings.FOWtex.enableRandomWrite = true;
             settings.FOWtex.Create();
+
+            Shader.SetGlobalTexture("_FoWMap_Global", settings.FOWtex, UnityEngine.Rendering.RenderTextureSubElement.Default);
 
             Planes = new GameObject[GridCountTotal];
 
             for (int i = 0; i < GridCountTotal; i++)
             {
-                int left = (i % settings.GridSize);
-                int bottom = Mathf.FloorToInt((float)i / settings.GridSize);
+                float left = (i % settings.GridSize) * size;
+                float bottom = ((float)i / settings.GridSize) * size;
 
                 var pl = Instantiate<GameObject>(Plane);
                 pl.transform.position = new Vector3(left + (size * 0.5f), Plane.transform.position.y, bottom + (size * 0.5f));
                 pl.transform.localScale = new Vector3(-size / 10, 1, -size / 10);
-                pl.GetComponent<MeshRenderer>().material.mainTexture = settings.FOWtex;
+                pl.GetComponent<MeshRenderer>().material = Instantiate(FoWMapMaterial);
+                pl.GetComponent<MeshRenderer>().material.SetInt("_FoWMapID",i);
+                //pl.GetComponent<MeshRenderer>().material.s
 
                 Planes[i] = pl;
             }
-
-            settings.FOWtex = tex;
-
         }
 
-        public GameObject Plane;
-        private GameObject[] Planes;
-        private Texture2D tex2D;
-        private RenderTexture tex;
-        private Color[] data;
-        private FogOfWarSettings fogOfWarSettings;
 
 
         public void UpdateTexture2D(byte[] alliances)

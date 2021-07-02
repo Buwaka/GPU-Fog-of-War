@@ -742,6 +742,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 8e665524828c48e19287d59a85b9a113, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+  FoWMapMaterial: {fileID: 2100000, guid: 9a267c9e508e04649a308657117d668a, type: 2}
   Plane: {fileID: 5081874684408504265, guid: 4f6d9f81e18defb4e9e2047d8cd6b6c0, type: 3}
 --- !u!1 &469694813
 GameObject:

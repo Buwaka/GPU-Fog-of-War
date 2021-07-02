@@ -1,0 +1,6 @@
+Instructions:
+1) Count how many Fog of War maps you need (128x128 for each, this is a memory limit for groupsahred memory) (Check SpawnPlanes in DebugDecalScript.cs)
+2) Spawn meshes where you want to display the Fog of War on, attach FoWMap material to it and assign it an ID (This ID will be used to determine which map it should read from, The maps are laid out in a 1D array (so use [(y * width) + x] to determine the right map))
+3) Then initialize the FoWMap Generator shader with all its necessary variables (Check InitShader() in FogOfWarService.cs)
+4) Fill the FoWMap Generator shader with the FoWData, the positions and range of sight. (Check UpdateFogOfWarGpu() in FogOfWarService.cs)
+5) Lastly start dispatching the FoWMap Generator shader to update the maps, making sure to use the x groupsize in the dispatch for the number of maps you want to generate. The maps are saved in the global shader memory, so the planes should automatically update themselves through their pixel shader.
