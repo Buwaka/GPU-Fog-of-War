@@ -58,7 +58,6 @@ namespace Modules.StarshipTroopers.Battles.BattleCombat.TracerSystems
             Data.Position = new Vector2(Position.x, Position.z);
             Data.Range = ViewRange;
             Data.FactionID = (byte)FactionId;
-            Data.MapID = 0;
             //Data.IsVisible = (byte) (renderer.enabled ? 1 : 0);
 
             FogOfWarService.Instance.RegisterFOWData(SoldierID, Data);

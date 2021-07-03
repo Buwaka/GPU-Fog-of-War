@@ -99,7 +99,7 @@ namespace Algorithms
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         private static void DrawHorizontalLine(int a, int x, int y, int width, byte value, byte[] outData, uint size, bool NibbleCountHack = false)
         {
-            for(int i = a; i < Math.Min(x, width); i++)
+            for(int i = Math.Max(a, 0); i < Math.Min(x, width); i++)
             {
                 SetValue(i, y, width, value, outData, size, NibbleCountHack);
             }

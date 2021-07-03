@@ -9,6 +9,7 @@ namespace Assets.Modules.SimpleSoldiers._Move
     {
         public Material FoWMapMaterial;
         public GameObject Plane;
+        public GameObject PlaneCPU;
         private GameObject[] Planes;
         private Texture2D tex2D;
         private RenderTexture tex;
@@ -20,17 +21,23 @@ namespace Assets.Modules.SimpleSoldiers._Move
         {
             this.fogOfWarSettings = fogOfWarSettings;
             var size = fogOfWarSettings.GridSize * cellSize;
-            transform.position = new Vector3(size * 0.5f, transform.position.y, size * 0.5f);
-            transform.localScale = new Vector3(-size / 10, 1, -size / 10);
-            tex2D = new Texture2D(numCells, numCells);
-            tex2D.filterMode = FilterMode.Point;
+
 
             data = new Color[numCells * numCells];
 
             //Plane.GetComponent<MeshRenderer>().material.mainTexture = tex2D;
 
             if (fogOfWarSettings.ComputeType == FogOfWarSettings.ComputeMethod.CPU)
-                Plane.GetComponent<MeshRenderer>().sharedMaterial.mainTexture = tex2D;
+            {
+                PlaneCPU = Instantiate<GameObject>(PlaneCPU);
+
+                PlaneCPU.transform.position = new Vector3(size * 0.5f, transform.position.y, size * 0.5f);
+                PlaneCPU.transform.localScale = new Vector3(-size / 10, 1, -size / 10);
+                tex2D = new Texture2D(numCells, numCells);
+                tex2D.filterMode = FilterMode.Point;
+
+                PlaneCPU.GetComponent<MeshRenderer>().sharedMaterial.mainTexture = tex2D;
+            }
             else
                 SpawnPlanes(fogOfWarSettings);
 
@@ -79,6 +86,9 @@ namespace Assets.Modules.SimpleSoldiers._Move
 
         public void UpdateTexture2D(byte[] alliances)
         {
+            if (fogOfWarSettings.ComputeType != FogOfWarSettings.ComputeMethod.CPU)
+                return;
+
             var ma1 = (fogOfWarSettings.mode == FogOfWarSettings.Mode.All ||
                       fogOfWarSettings.mode == FogOfWarSettings.Mode.FactionBlue) ? 1 : 0;
             var ma2 = (fogOfWarSettings.mode == FogOfWarSettings.Mode.All ||

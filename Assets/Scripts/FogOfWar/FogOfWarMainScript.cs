@@ -156,9 +156,21 @@ namespace DefaultNamespace
 
         private void spawnRandomSoldier()
         {
-            var pos = new Vector3(
-                Random.value * (Settings.MapSize - Settings.SoldierEdgeClamping * 2) + Settings.SoldierEdgeClamping, 0,
-                Random.value * (Settings.MapSize - Settings.SoldierEdgeClamping * 2) + Settings.SoldierEdgeClamping);
+            int mapsize;
+
+            if (Settings.ComputeType == FogOfWarSettings.ComputeMethod.CPU)
+            {
+                mapsize = Mathf.RoundToInt(Settings.GridSize * Settings.CellSize);
+            }
+            else
+            {
+                mapsize = Settings.MapSize;
+            }
+
+
+                var pos = new Vector3(
+                Random.value * (mapsize - Settings.SoldierEdgeClamping * 2) + Settings.SoldierEdgeClamping, 0,
+                Random.value * (mapsize - Settings.SoldierEdgeClamping * 2) + Settings.SoldierEdgeClamping);
             var faction = Random.Range(1, 3);
             var s = Instantiate(SoldierPrefab);
             soldiers.Add(s);

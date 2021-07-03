@@ -12,7 +12,6 @@
 
 struct FoWData
 {
-	uint MapID;
     float2 position;
     float range;
     int FactionID;
@@ -300,7 +299,7 @@ void FOWMapGenerator(uint3 id : SV_GroupThreadID, uint3 Group : SV_GroupID)
 		uint realID = mapIndex + ((id.x * instPerThread) + i);
 		
 		//exit loop if thread has no job
-		if (realID > (uint) dataCount)
+		if (realID - mapIndex > (uint) dataCount)
 			break;
 		//skip if unit is not visible
 		//can probably remove this alltogether
