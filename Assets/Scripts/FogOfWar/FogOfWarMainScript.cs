@@ -20,6 +20,8 @@ namespace DefaultNamespace
         public SoldierScript SoldierPrefab;
         public Canvas Canvas;
         public Transform GroundPlane;
+        public Text FPSCounter;
+        private double LastFPS = 0;
      
         public DebugDecalScript Decal;
 
@@ -88,7 +90,7 @@ namespace DefaultNamespace
                     watch.Restart();
                     fogOfWarService.UpdateFogOfWar(soldiers, visibleToFaction, VisibleToFaction_Size);
                     watch.Stop();
-                    fowTime = watch.Elapsed.TotalMilliseconds;
+                    fowTime = watch.Elapsed.TotalSeconds;
                 }
             }
             else
@@ -98,7 +100,7 @@ namespace DefaultNamespace
                     watch.Restart();
                     fogOfWarService.UpdateFogOfWarGPU(soldiers, visibleToFaction, VisibleToFaction_Size);
                     watch.Stop();
-                    fowTime = watch.Elapsed.TotalMilliseconds;
+                    fowTime = watch.Elapsed.TotalSeconds;
                 }
             }
 
@@ -113,8 +115,31 @@ namespace DefaultNamespace
 
             updateFogOfWarRendering(visibleToFaction);
             renderSoldierRanges();
+
+            AddFPS((float)(1.0f / fowTime));
+
+
+            FPSCounter.text = CalculateFPS().ToString("0.0") + "\n FPS";
             Debug.Log($"Fog Of War: {fowTime:0.00000}ms - " +
                       $"Visibility: {visibilityTime:0.00}ms");
+        }
+
+        private float[] fpsBuffer = new float[100];
+        private int FPSi = 0;
+        private void AddFPS(float FPS)
+        {
+            fpsBuffer[FPSi] = FPS;
+            FPSi = (FPSi + 1) % 100;
+        }
+
+        private float CalculateFPS()
+        {
+            float sum = 0;
+            for (int i = 0; i < 100; i++)
+            {
+                sum += fpsBuffer[i];
+            }
+            return sum / 100;
         }
 
         private void renderSoldierRanges()

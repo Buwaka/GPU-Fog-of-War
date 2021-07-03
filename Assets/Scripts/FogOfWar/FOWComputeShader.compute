@@ -1,6 +1,6 @@
 // Each #kernel tells which function to compile; you can have many kernels
 #pragma kernel FOWMapGenerator DEFINE_WITH_VALUE=1337
-#pragma enable_d3d11_debug_symbols
+//#pragma enable_d3d11_debug_symbols
 //#pragma exclude_renderers d3d11_9x
 //#pragma exclude_renderers d3d9
 
