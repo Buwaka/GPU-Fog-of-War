@@ -286,18 +286,26 @@ namespace FogOfWar
             /// <param name="visibleToFaction"></param>
             public void UpdateSoldierVisibilities(List<SoldierScript> soldiers, byte[] visibleToFaction, uint size)
             {
-                //foreach (var s in soldiers)
-                //{
-                //    if(settings.mode == FogOfWarSettings.Mode.All || s.FactionId == (int) settings.mode)
-                //    {
-                //        s.SetVisible(true);
-                //    }
-                //    else
-                //    {
-                //        s.SetVisible(false);
-                //    }
-                //}
+            foreach (var s in soldiers)
+            {
+                if (settings.mode == FogOfWarSettings.Mode.All || s.FactionId == (int)settings.mode)
+                {
+                    s.SetVisible(true);
+                }
+                else
+                {
+                    s.SetVisible(false);
+                }
             }
+        }
+
+        public void UnRegisterFOWData(uint ID)
+        {
+            if (FoWData.ContainsKey(ID))
+            {
+                FoWData.Remove(ID);
+            }
+        }
 
         private uint CalculateMapID(Vector2 position)
         {

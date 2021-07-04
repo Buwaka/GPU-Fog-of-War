@@ -52,8 +52,16 @@ namespace Modules.StarshipTroopers.Battles.BattleCombat.TracerSystems
             Rotation = transform.rotation = rotation;
         }
 
+        private void UnRegisterFOW()
+        {
+            FogOfWarService.Instance.UnRegisterFOWData(SoldierID);
+        }
+
         private void RegisterFOW()
         {
+            if (!renderer.enabled)
+                return;
+
             FogOfWarData Data;
             Data.Position = new Vector2(Position.x, Position.z);
             Data.Range = ViewRange;
@@ -66,7 +74,10 @@ namespace Modules.StarshipTroopers.Battles.BattleCombat.TracerSystems
         public void SetVisible(bool visible)
         {
             renderer.enabled = visible;
-            RegisterFOW();
+            if (visible)
+                RegisterFOW();
+            else
+                UnRegisterFOW();
         }
 
         public void SetFaction(int factionId)

@@ -74,7 +74,7 @@ namespace Assets.Modules.SimpleSoldiers._Move
                 var pl = Instantiate<GameObject>(Plane);
                 pl.transform.position = new Vector3(left + (size * 0.5f), Plane.transform.position.y, bottom + (size * 0.5f));
                 pl.transform.localScale = new Vector3(-size / 10, 1, -size / 10);
-                pl.GetComponent<MeshRenderer>().material = Instantiate(FoWMapMaterial);
+                //pl.GetComponent<MeshRenderer>().material = Instantiate(FoWMapMaterial);
                 pl.GetComponent<MeshRenderer>().material.SetInt("_FoWMapID",i);
                 //pl.GetComponent<MeshRenderer>().material.s
 
