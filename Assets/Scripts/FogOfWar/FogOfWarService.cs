@@ -133,6 +133,7 @@ namespace FogOfWar
             FOWComputeShader.SetFloat("_GridSize", settings.GridSize);
             FOWComputeShader.SetFloat("_CellSize", settings.CellSize);
             FOWComputeShader.SetFloat("_MapSize", settings.MapSize);
+            FOWComputeShader.SetInt("FactionCount", 3);
 
             //FOWComputeShader.SetTexture(kernel, "Result", settings.FOWtex);
             FOWComputeShader.SetTextureFromGlobal(kernel, "_FoWMap", "_FoWMap_Global");
@@ -256,9 +257,17 @@ namespace FogOfWar
             FOWIndexBuffer.SetData(FoWData_Indieces);
             FOWComputeShader.SetBuffer(kernel, "_DataCountPerMap", FOWIndexBuffer);
 
+            Color[] FactionColors = new Color[3];
+            FactionColors[0] = settings.DefaultColor;
+            FactionColors[1] = settings.FactioBlueColor;
+            FactionColors[2] = settings.FactionRedColor;
+            ComputeBuffer FOWFactionBuffer = new ComputeBuffer(3, sizeof(float) * 4, ComputeBufferType.Structured);
+            FOWFactionBuffer.SetData(FactionColors);
+            FOWComputeShader.SetBuffer(kernel, "_FactionData", FOWFactionBuffer);
+
             FOWComputeShader.Dispatch(kernel, settings.GridCountTotal, 1, 1);
 
-
+            FOWFactionBuffer.Dispose();
             FOWDataBuffer.Dispose();
             FOWIndexBuffer.Dispose();
 

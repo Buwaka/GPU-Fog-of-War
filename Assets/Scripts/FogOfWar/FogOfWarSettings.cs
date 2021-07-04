@@ -25,7 +25,7 @@ namespace FogOfWar
         [Header("Map settings")] public int GridSize = 128;
         public int MapSize = 4096;
 
-        public int GridCountRow { get { return MapSize / GridSize; } }
+        public int GridCountRow { get { return Mathf.CeilToInt(MapSize / GridSize / CellSize); } }
         public int GridCountTotal { get { return GridCountRow * GridCountRow; } }
 
         /// <summary>
@@ -37,6 +37,7 @@ namespace FogOfWar
 
 
         [Header("Rendering")] public Mode mode = Mode.All;
+        public Color DefaultColor = Color.grey;
         public Color FactionRedColor = Color.red;
         public Color FactioBlueColor = Color.blue;
         public bool DrawRangesEnabled;

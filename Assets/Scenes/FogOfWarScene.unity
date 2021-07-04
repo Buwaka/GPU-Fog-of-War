@@ -2048,7 +2048,7 @@ Transform:
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_Children: []
   m_Father: {fileID: 0}
-  m_RootOrder: 6
+  m_RootOrder: 7
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &1659619690
 GameObject:
@@ -2082,18 +2082,19 @@ MonoBehaviour:
   Settings:
     GridSize: 128
     MapSize: 4096
-    CellSize: 4
+    CellSize: 1
     SoldierEdgeClamping: 1
     mode: 0
-    FactionRedColor: {r: 1, g: 0, b: 0, a: 0.5254902}
-    FactioBlueColor: {r: 0, g: 0, b: 1, a: 0.5529412}
+    DefaultColor: {r: 0.5, g: 0.5, b: 0.5, a: 1}
+    FactionRedColor: {r: 1, g: 0, b: 0, a: 0.105882354}
+    FactioBlueColor: {r: 0, g: 0, b: 1, a: 0.12156863}
     DrawRangesEnabled: 0
     ComputeType: 1
     GPUFOWShader: {fileID: 7200000, guid: e680570a74ede9a499ec55f493397638, type: 3}
     FOWtex: {fileID: 0}
     WanderEnabled: 0
     ChangeFactionEnabled: 0
-    PerformanceTestSoldiersCount: 2000
+    PerformanceTestSoldiersCount: 4000
   SoldierPrefab: {fileID: 4504156914483626748, guid: 924661e390b288242919bdfcdc1ea24e,
     type: 3}
   Canvas: {fileID: 207219178}
@@ -2324,7 +2325,7 @@ PrefabInstance:
     - target: {fileID: 624755625381171056, guid: 924661e390b288242919bdfcdc1ea24e,
         type: 3}
       propertyPath: m_RootOrder
-      value: 7
+      value: 6
       objectReference: {fileID: 0}
     - target: {fileID: 624755625381171056, guid: 924661e390b288242919bdfcdc1ea24e,
         type: 3}

@@ -23,6 +23,11 @@ struct FoWDataHeader
 	uint count;
 };
 
+struct FactionData
+{
+	float4 color;
+};
+
 struct GroupData
 {
 	int count;
@@ -41,6 +46,7 @@ groupshared uint _FoWMapCache[FoWMap_Size];
 StructuredBuffer<FoWData> _FoWData;
 uniform RWTexture2DArray<float4> _FoWMap;
 
+StructuredBuffer<FactionData> _FactionData;
 StructuredBuffer<FoWDataHeader> _DataCountPerMap;
 
 CBUFFER_START(Params)
@@ -48,12 +54,8 @@ float _GridSize;
 float _CellSize;
 float _MapSize;
 
+uint FactionCount;
 
-
-float4 FactionBlueColor;
-//int FactionBlueID;
-float4 FactionRedColor;
-//int FactionRedID;
 
 float4 DefaultColor = float4(0, 0, 0, 0);
 CBUFFER_END
@@ -163,8 +165,6 @@ void SetBytePackedPixel(in uint x, in uint y, in uint width, in uint value)
 		uint index;
 		index = floor((float) target / 4); //4 bytes per uint
 		uint offset = target % 4;
-		
-		uint test = _FoWMapCache[index];
 			
 		InterlockedOr(_FoWMapCache[index], SetSingleByteuint(value, offset));
 	}
@@ -540,29 +540,26 @@ void FOWMapGenerator(uint3 id : SV_GroupThreadID, uint3 Group : SV_GroupID)
 {
 	uint width = _GridSize;
 	uint mapSizeTotal = _GridSize * _GridSize;
-	uint gridsPerRow = _MapSize / _GridSize;
+	uint gridsPerRow = _MapSize / _GridSize / _CellSize;
 	uint totalGridCount = gridsPerRow * gridsPerRow;
 
 	uint instPerThread; // how many units/pixels that need to be drawn per thread
 	uint mapIndex = Group.x; // which map this thread is working for
 	uint dataCount = GetTotalDataCount(mapIndex, gridsPerRow, (int)totalGridCount); // number of units to draw on the map
 
-
 	
 	InitArray(FoWMap_Size);
-
-
 
 	
 	//draw units on atomic map
 	instPerThread = (uint) ceil((float) dataCount / GroupSize);
-	
 	[loop]
 	for (uint i = 0; i < instPerThread; i++)
 	{
 		uint realID = ((id.x * instPerThread) + i);
 		uint mapID, dataIndex;
 		
+		// go through the data list searching for a unit to draw based on mapIndex and thread ID
 		if (GetDataID(realID, mapIndex, gridsPerRow, (int)totalGridCount, dataIndex, mapID))
 		{
 			int2 offset;
@@ -573,42 +570,6 @@ void FOWMapGenerator(uint3 id : SV_GroupThreadID, uint3 Group : SV_GroupID)
 		}
 	}
 	
-	
-	
-	
-	
-	
-	
-	
-	
-	
-	
-	
-	
-	
-	
-	//	//draw units on atomic map
-	//instPerThread = (uint) ceil((float) dataCount / GroupSize);
-	//[loop]
-	//for (uint i = 0; i < instPerThread; i++)
-	//{
-	//	uint realID = mapIndex + ((id.x * instPerThread) + i);
-		
-	//	//exit loop if thread has no job
-	//	if (realID - mapIndex > (uint) dataCount)
-	//		break;
-	//	//skip if unit is not visible
-	//	//can probably remove this alltogether
-	//	//if (_FoWData[realID].IsVisible == 0)
-	//	//	continue;
-		
-	//	int2 offset;
-	//	offset.x = -(Group.x % gridsPerRow * _GridSize);
-	//	offset.y = -floor((Group.x / gridsPerRow) * _GridSize);
-		
-	//	DrawFullCircle(realID, width, offset);
-	//}
-	//wait for all units to finish
 	GroupMemoryBarrierWithGroupSync();
 	
 	
@@ -629,14 +590,22 @@ void FOWMapGenerator(uint3 id : SV_GroupThreadID, uint3 Group : SV_GroupID)
 		
 		if (data != 0)
 		{
+			// initialize pixel
 			_FoWMap[position] = 0;
-			if (data & 1)
-				_FoWMap[position] += FactionBlueColor;
-			if (data & 2)
-				_FoWMap[position] += FactionRedColor;
+			uint count = 0;
+			float4 color = 0;
+			for (uint i = 1; i < FactionCount; i++)
+			{
+				if (data & i)
+				{
+					color += _FactionData[i].color;
+					count++;
+				}
+			}
+			_FoWMap[position] = color / count; // average all the relevant colors
 		}
 		else
-			_FoWMap[position] = DefaultColor; //checker board
+			_FoWMap[position] = _FactionData[0].color; //0 is for the default color
 	}
 	
 }

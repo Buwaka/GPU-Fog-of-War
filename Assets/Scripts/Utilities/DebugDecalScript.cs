@@ -46,8 +46,8 @@ namespace Assets.Modules.SimpleSoldiers._Move
 
         void SpawnPlanes(FogOfWarSettings settings)
         {
-            int GridCountRow = settings.MapSize / settings.GridSize;
-            int GridCountTotal = GridCountRow * GridCountRow;
+            int GridCountRow = settings.GridCountRow;
+            int GridCountTotal = settings.GridCountTotal;
             float size = settings.GridSize * settings.CellSize;
 
 
