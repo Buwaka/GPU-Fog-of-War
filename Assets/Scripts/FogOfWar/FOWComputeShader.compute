@@ -1,6 +1,6 @@
 // Each #kernel tells which function to compile; you can have many kernels
 #pragma kernel FOWMapGenerator DEFINE_WITH_VALUE=1337
-//#pragma enable_d3d11_debug_symbols
+#pragma enable_d3d11_debug_symbols
 //#pragma exclude_renderers d3d11_9x
 //#pragma exclude_renderers d3d9
 
@@ -21,6 +21,12 @@ struct FoWDataHeader
 {
 	uint index;
 	uint count;
+};
+
+struct GroupData
+{
+	int count;
+	int mapIDs[9];
 };
 
 //number of threads in each group
@@ -169,8 +175,7 @@ uint GetBytePackedPixel(in uint x, in uint y, in uint width)
 	uint target = (y * width) + x;
 	if (target < FoWMap_Size * 4) //4 bytes per uint
 	{
-		uint index;
-		index = floor((float) target / 4); //4 bytes per uint
+		uint index = floor((float) target / 4); //4 bytes per uint
 		uint offset = target % 4;
 			
 		uint data = _FoWMapCache[index];
@@ -262,6 +267,262 @@ void InitArrayThreaded(uint threadID, uint sizePerThread)
 	GroupMemoryBarrierWithGroupSync();
 }
 
+void GetSurroundingMapID(in uint baseMapID, in uint gridsPerRow, in int totalGridCount, out GroupData Data)
+{
+	//center
+	int center = baseMapID;
+	Data.mapIDs[0] = center;
+	Data.count += _DataCountPerMap[center].count;
+	
+	//top
+	int top = baseMapID + gridsPerRow;
+	if (top > totalGridCount)
+		Data.mapIDs[1] = -1;
+	else
+	{
+		Data.mapIDs[1] = top;
+		Data.count += _DataCountPerMap[top].count;
+	}
+	
+	// top right
+	int topRight = baseMapID + 1 + gridsPerRow;
+	if (topRight > totalGridCount)
+		Data.mapIDs[2] = -1;
+	else
+	{
+		Data.mapIDs[2] = topRight;
+		Data.count += _DataCountPerMap[topRight].count;
+	}
+	
+	// right
+	int right = baseMapID + 1;
+	if (right > totalGridCount)
+		Data.mapIDs[3] = -1;
+	else
+	{
+		Data.mapIDs[3] = right;
+		Data.count += _DataCountPerMap[right].count;
+	}
+	
+	// bottom right
+	int bottomRight = baseMapID + 1 - gridsPerRow;
+	if (bottomRight > totalGridCount || bottomRight < 0)
+		Data.mapIDs[4] = -1;
+	else
+	{
+		Data.mapIDs[4] = bottomRight;
+		Data.count += _DataCountPerMap[bottomRight].count;
+	}
+	
+	// bottom
+	int bottom = baseMapID - gridsPerRow;
+	if (bottom > totalGridCount || bottom < 0)
+		Data.mapIDs[5] = -1;
+	else
+	{
+		Data.mapIDs[5] = bottom;
+		Data.count += _DataCountPerMap[bottom].count;
+	}
+	
+	// bottom left
+	int bottomLeft = baseMapID - 1 - gridsPerRow;
+	if (bottomLeft > totalGridCount || bottomLeft < 0)
+		Data.mapIDs[6] = -1;
+	else
+	{
+		Data.mapIDs[6] = bottomLeft;
+		Data.count += _DataCountPerMap[bottomLeft].count;
+	}
+	
+	// left
+	int left = baseMapID - 1;
+	if (left > totalGridCount || left < 0)
+		Data.mapIDs[7] = -1;
+	else
+	{
+		Data.mapIDs[7] = left;
+		Data.count += _DataCountPerMap[left].count;
+	}
+	
+	// top left
+	int topLeft = baseMapID - 1 + gridsPerRow;
+	if (topLeft > totalGridCount || topLeft < 0)
+		Data.mapIDs[8] = -1;
+	else
+	{
+		Data.mapIDs[8] = topLeft;
+		Data.count += _DataCountPerMap[topLeft].count;
+	}
+
+}
+
+uint GetTotalDataCount(in uint baseMapID, in uint gridsPerRow, in int totalGridCount)
+{
+	uint count = 0;
+	int MID;
+	
+	//center
+	MID = baseMapID;
+	if (MID <= totalGridCount && MID >= 0)
+	{
+		count += _DataCountPerMap[MID].count;
+	}
+	
+	//top
+	MID = baseMapID + gridsPerRow;
+	if (MID <= totalGridCount && MID >= 0)
+	{
+		count += _DataCountPerMap[MID].count;
+	}
+	
+	// top right
+	MID = baseMapID + 1 + gridsPerRow;
+	if (MID <= totalGridCount && MID >= 0)
+	{
+		count += _DataCountPerMap[MID].count;
+	}
+	
+	// right
+	MID = baseMapID + 1;
+	if (MID <= totalGridCount && MID >= 0)
+	{
+		count += _DataCountPerMap[MID].count;
+	}
+	
+	// bottom right
+	MID = baseMapID + 1 - gridsPerRow;
+	if (MID <= totalGridCount && MID >= 0)
+	{
+		count += _DataCountPerMap[MID].count;
+	}
+	
+	// bottom
+	MID = baseMapID - gridsPerRow;
+	if (MID <= totalGridCount && MID >= 0)
+	{
+		count += _DataCountPerMap[MID].count;
+	}
+	
+	// bottom left
+	MID = baseMapID - 1 - gridsPerRow;
+	if (MID <= totalGridCount && MID >= 0)
+	{
+		count += _DataCountPerMap[MID].count;
+	}
+	
+	// left
+	MID = baseMapID - 1;
+	if (MID <= totalGridCount && MID >= 0)
+	{
+		count += _DataCountPerMap[MID].count;
+	}
+	
+	// top left
+	MID = baseMapID - 1 + gridsPerRow;
+	if (MID <= totalGridCount && MID >= 0)
+	{
+		count += _DataCountPerMap[MID].count;
+	}
+	
+	return count;
+}
+
+
+bool ___GetDataIDHelper(inout uint index, in int MID, out uint unitIndex, out uint mapID)
+{
+
+	if (index < _DataCountPerMap[MID].count)
+	{
+		mapID = MID;
+		unitIndex = _DataCountPerMap[MID].index + index;
+		return true;
+	}
+	else
+		index -= _DataCountPerMap[MID].count;
+	
+	return false;
+}
+
+bool GetDataID(in uint index, in int baseMapID, in uint gridsPerRow, in int totalGridCount, out uint unitIndex, out uint mapID)
+{
+	uint localIndex = index;
+	uint count;
+	int MID;
+	
+	//center
+	MID = baseMapID;
+	if (MID <= totalGridCount && MID >= 0)
+	{
+		if (___GetDataIDHelper(localIndex, MID, unitIndex, mapID))
+			return true;
+	}
+	
+	//top
+	MID = baseMapID + gridsPerRow;
+	if (MID <= totalGridCount && MID >= 0)
+	{
+		if (___GetDataIDHelper(localIndex, MID, unitIndex, mapID))
+			return true;
+	}
+	
+	// top right
+	MID = baseMapID + 1 + gridsPerRow;
+	if (MID <= totalGridCount && MID >= 0)
+	{
+		if (___GetDataIDHelper(localIndex, MID, unitIndex, mapID))
+			return true;
+	}
+	
+	// right
+	MID = baseMapID + 1;
+	if (MID <= totalGridCount && MID >= 0)
+	{
+		if (___GetDataIDHelper(localIndex, MID, unitIndex, mapID))
+			return true;
+	}
+	
+	// bottom right
+	MID = baseMapID + 1 - gridsPerRow;
+	if (MID <= totalGridCount && MID >= 0)
+	{
+		if (___GetDataIDHelper(localIndex, MID, unitIndex, mapID))
+			return true;
+	}
+	
+	// bottom
+	MID = baseMapID - gridsPerRow;
+	if (MID <= totalGridCount && MID >= 0)
+	{
+		if (___GetDataIDHelper(localIndex, MID, unitIndex, mapID))
+			return true;
+	}
+	
+	// bottom left
+	MID = baseMapID - 1 - gridsPerRow;
+	if (MID <= totalGridCount && MID >= 0)
+	{
+		if (___GetDataIDHelper(localIndex, MID, unitIndex, mapID))
+			return true;
+	}
+	
+	// left
+	MID = baseMapID - 1;
+	if (MID <= totalGridCount && MID >= 0)
+	{
+		if (___GetDataIDHelper(localIndex, MID, unitIndex, mapID))
+			return true;
+	}
+	
+	// top left
+	MID = baseMapID - 1 + gridsPerRow;
+	if (MID <= totalGridCount && MID >= 0)
+	{
+		if (___GetDataIDHelper(localIndex, MID, unitIndex, mapID))
+			return true;
+	}
+	
+	return false;
+}
 
 //To understand the difference, a bit of hardware knowledge is required:
 //Internally, a GPU works on so-called wave fonts, which are SIMD-style processing units (Like a group of threads, where each thread can have it's own data, but they all have to execute the exact same instruction at the exact same time, allways). 
@@ -278,52 +539,87 @@ void InitArrayThreaded(uint threadID, uint sizePerThread)
 void FOWMapGenerator(uint3 id : SV_GroupThreadID, uint3 Group : SV_GroupID)
 {
 	uint width = _GridSize;
-	uint gridSize = _GridSize * _GridSize;
+	uint mapSizeTotal = _GridSize * _GridSize;
 	uint gridsPerRow = _MapSize / _GridSize;
+	uint totalGridCount = gridsPerRow * gridsPerRow;
 
 	uint instPerThread; // how many units/pixels that need to be drawn per thread
-	uint mapIndex = _DataCountPerMap[Group.x].index; // starting point in Data array
-	uint dataCount = _DataCountPerMap[Group.x].count; // number of units to draw on the map
-	uint Null;
+	uint mapIndex = Group.x; // which map this thread is working for
+	uint dataCount = GetTotalDataCount(mapIndex, gridsPerRow, (int)totalGridCount); // number of units to draw on the map
 
-	//_FoWData.GetDimensions(dataCount, Null);
+
 	
 	InitArray(FoWMap_Size);
+
+
 
 	
 	//draw units on atomic map
 	instPerThread = (uint) ceil((float) dataCount / GroupSize);
+	
 	[loop]
 	for (uint i = 0; i < instPerThread; i++)
 	{
-		uint realID = mapIndex + ((id.x * instPerThread) + i);
+		uint realID = ((id.x * instPerThread) + i);
+		uint mapID, dataIndex;
 		
-		//exit loop if thread has no job
-		if (realID - mapIndex > (uint) dataCount)
-			break;
-		//skip if unit is not visible
-		//can probably remove this alltogether
-		//if (_FoWData[realID].IsVisible == 0)
-		//	continue;
+		if (GetDataID(realID, mapIndex, gridsPerRow, (int)totalGridCount, dataIndex, mapID))
+		{
+			int2 offset;
+			offset.x = -(mapIndex % gridsPerRow * _GridSize);
+			offset.y = -floor((mapIndex / gridsPerRow) * _GridSize);
 		
-		int2 offset;
-		offset.x = -(Group.x % gridsPerRow * _GridSize);
-		offset.y = -floor((Group.x / gridsPerRow) * _GridSize);
-		
-		DrawFullCircle(realID, width, offset);
+			DrawFullCircle(dataIndex, width, offset);
+		}
 	}
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	//	//draw units on atomic map
+	//instPerThread = (uint) ceil((float) dataCount / GroupSize);
+	//[loop]
+	//for (uint i = 0; i < instPerThread; i++)
+	//{
+	//	uint realID = mapIndex + ((id.x * instPerThread) + i);
+		
+	//	//exit loop if thread has no job
+	//	if (realID - mapIndex > (uint) dataCount)
+	//		break;
+	//	//skip if unit is not visible
+	//	//can probably remove this alltogether
+	//	//if (_FoWData[realID].IsVisible == 0)
+	//	//	continue;
+		
+	//	int2 offset;
+	//	offset.x = -(Group.x % gridsPerRow * _GridSize);
+	//	offset.y = -floor((Group.x / gridsPerRow) * _GridSize);
+		
+	//	DrawFullCircle(realID, width, offset);
+	//}
 	//wait for all units to finish
 	GroupMemoryBarrierWithGroupSync();
 	
 	
 	//read atomic map and write on _FoWMap texture
-	instPerThread = (uint) ceil((float) gridSize / GroupSize);
+	instPerThread = (uint) ceil((float) mapSizeTotal / GroupSize);
 	[loop]
 	for (uint j = 0; j < instPerThread; j++)
 	{
 		//current pixel index in 1D, based on thread ID
 		uint realID = (id.x * instPerThread) + j;
-		if (realID > gridSize)
+		if (realID > mapSizeTotal)
 			break;
 		
 		//converting that 1D index to a 2D index
@@ -340,7 +636,7 @@ void FOWMapGenerator(uint3 id : SV_GroupThreadID, uint3 Group : SV_GroupID)
 				_FoWMap[position] += FactionRedColor;
 		}
 		else
-			_FoWMap[position] = (position.x + position.y) % 2 > 0 ? DefaultColor : float4(0, 0, 0, 1); //checker board
+			_FoWMap[position] = DefaultColor; //checker board
 	}
 	
 }

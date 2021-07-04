@@ -6,7 +6,9 @@ Shader "Unlit/FoWMapShader"
     }
     SubShader
     {
-        Tags { "RenderType"="Opaque" }
+		Tags {"Queue" = "Transparent" "IgnoreProjector" = "True" "RenderType" = "Transparent"}
+		ZWrite Off
+		Blend SrcAlpha OneMinusSrcAlpha
         LOD 100
 
         Pass
